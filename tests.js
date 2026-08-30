@@ -1,0 +1,103 @@
+const assert = require('assert');
+const seed = require('./data.js');
+const L = require('./logic.js');
+
+assert.strictEqual(seed.sites.length, 38, 'Expected 38 sites from workbook');
+assert.strictEqual(L.totalTickets(seed), 1926, 'Expected 1,926 tickets from workbook');
+assert.deepStrictEqual(seed.people.filter(p => p.vacation).map(p => p.name).sort(), ['Bryan', 'David'], 'David and Bryan should start on vacation');
+assert.deepStrictEqual(seed.supportAdmins.map(a => a.name).sort(), ['Amin', 'Ola', 'Ryan'], 'Expected three TSAs');
+assert.strictEqual(seed.people.find(p => p.name === 'Youssef').role, 'tce');
+assert.strictEqual(seed.people.find(p => p.name === 'Carolyn').role, 'tse');
+assert.strictEqual(seed.people.find(p => p.name === 'Garett').role, 'tce');
+
+const balanced = L.rebalanceAssignments(seed);
+const d = L.diagnostics(balanced);
+assert.deepStrictEqual(d.morningMissing, [], 'Balanced schedule should cover every site from 6-12');
+assert.deepStrictEqual(d.morningDuplicates, [], 'Balanced schedule should remove morning duplicates');
+assert.deepStrictEqual(d.midDuplicates, [], 'Balanced schedule should avoid midday duplicates');
+assert.deepStrictEqual(d.effectiveMissing, [], 'Balanced overlap should cover all sites');
+assert.strictEqual(d.overlap.midTickets, 770, 'Midday should receive approximately 40% of 1,926 tickets');
+assert.strictEqual(d.overlap.morningTickets, 1156, 'Morning should retain approximately 60% of 1,926 tickets');
+assert.ok(Math.abs(d.overlap.midPct - 0.40) < 0.001, 'Midday split should be essentially 40%');
+assert.ok(balanced.assignments['morning-carolyn'].includes('BRK - 6020'), 'Carolyn must own BRK when active');
+assert.strictEqual(L.assignmentOwners(balanced, 'mid', 'BRK - 6020', true).length, 0, 'BRK should not be handed to midday');
+
+const morningOverlapLoads = L.peopleForShift(balanced, 'morning', true).map(p => L.personStats(balanced, p.id, 'midday').ticketLoad);
+const midOverlapLoads = L.peopleForShift(balanced, 'mid', true).map(p => L.personStats(balanced, p.id, 'midday').ticketLoad);
+assert.ok(Math.max(...morningOverlapLoads) - Math.min(...morningOverlapLoads) <= 10, 'Active morning overlap loads should be tightly balanced');
+assert.ok(Math.max(...midOverlapLoads) - Math.min(...midOverlapLoads) <= 10, 'Active midday loads should be tightly balanced');
+
+// TSA layer: every active engineer gets exactly one primary pairing and full real-time coverage.
+const td = L.tsaDiagnostics(balanced);
+assert.strictEqual(td.activeEngineerCount, 8, 'David and Bryan are out, leaving eight active engineers');
+assert.strictEqual(td.coveredPrimaryCount, 8, 'Every active engineer should have primary TSA coverage');
+assert.deepStrictEqual(td.missingPrimary, [], 'No active engineer should miss a primary TSA');
+assert.deepStrictEqual(td.duplicatePrimary, [], 'Each active engineer should have one primary TSA');
+assert.deepStrictEqual(td.uncoveredWindows, [], 'Every active engineer should have TSA coverage throughout their shift');
+
+L.supportAdmins(balanced, true).forEach(admin => {
+  const load = td.loads[admin.id];
+  assert.ok(load.engineerCount >= 2, `${admin.name} should support multiple engineers`);
+  assert.ok(load.morningCount >= 1, `${admin.name} should have at least one morning engineer`);
+  assert.ok(load.midCount >= 1, `${admin.name} should have at least one midday engineer`);
+});
+
+balanced.people.filter(p => !p.vacation).forEach(engineer => {
+  assert.strictEqual(L.tsaOwnersForEngineer(balanced, engineer.id, true).length, 1, `${engineer.name} should have one primary TSA`);
+});
+
+// David returning should get sites and a TSA pairing immediately.
+const davidBack = L.setVacation(balanced, 'morning-david', false);
+assert.strictEqual(davidBack.people.find(p => p.id === 'morning-david').vacation, false, 'David should be active');
+assert.ok(davidBack.assignments['morning-david'].length > 0, 'Returning from vacation should automatically receive sites');
+assert.strictEqual(L.tsaOwnersForEngineer(davidBack, 'morning-david', true).length, 1, 'Returning engineer should automatically receive a TSA');
+assert.deepStrictEqual(L.getMissingMorning(davidBack), [], 'Returning person rebalance should retain full morning coverage');
+assert.ok(davidBack.assignments['morning-carolyn'].includes('BRK - 6020'), 'Carolyn should keep BRK after rebalance');
+
+const bryanBack = L.setVacation(davidBack, 'mid-bryan', false);
+assert.ok(bryanBack.assignments['mid-bryan'].length > 0, 'Returning midday person should automatically receive takeover sites');
+assert.strictEqual(L.tsaOwnersForEngineer(bryanBack, 'mid-bryan', true).length, 1, 'Returning midday engineer should receive TSA support');
+const allActiveMorning = L.peopleForShift(bryanBack, 'morning', true).map(p => L.personStats(bryanBack, p.id, 'midday').ticketLoad);
+const allActiveMid = L.peopleForShift(bryanBack, 'mid', true).map(p => L.personStats(bryanBack, p.id, 'midday').ticketLoad);
+assert.ok(Math.max(...allActiveMorning) - Math.min(...allActiveMorning) <= 5, 'With all morning staff active, overlap load should be nearly equal per person');
+assert.ok(Math.max(...allActiveMid) - Math.min(...allActiveMid) <= 5, 'With all midday staff active, overlap load should be nearly equal per person');
+const tdAll = L.tsaDiagnostics(bryanBack);
+L.supportAdmins(bryanBack, true).forEach(admin => {
+  assert.ok(tdAll.loads[admin.id].morningCount >= 1, `${admin.name} should retain morning variety when all active`);
+  assert.ok(tdAll.loads[admin.id].midCount >= 1, `${admin.name} should retain midday variety when all active`);
+});
+
+const davidOutAgain = L.setVacation(davidBack, 'morning-david', true);
+assert.strictEqual(davidOutAgain.assignments['morning-david'].length, 0, 'Vacation should remove David assignments');
+assert.strictEqual(L.tsaOwnersForEngineer(davidOutAgain, 'morning-david', true).length, 0, 'Vacation should remove David TSA pairing');
+assert.deepStrictEqual(L.getMissingMorning(davidOutAgain), [], 'Vacation rebalance should immediately redistribute morning sites');
+
+const carolynOut = L.setVacation(balanced, 'morning-carolyn', true);
+assert.strictEqual(carolynOut.assignments['morning-carolyn'].length, 0, 'Carolyn vacation should clear her assignments');
+assert.strictEqual(L.assignmentOwners(carolynOut, 'morning', 'BRK - 6020', true).length, 1, 'BRK should receive temporary morning coverage while Carolyn is out');
+assert.strictEqual(L.assignmentOwners(carolynOut, 'mid', 'BRK - 6020', true).length, 0, 'BRK should remain protected from midday takeover');
+const carolynBack = L.setVacation(carolynOut, 'morning-carolyn', false);
+assert.ok(carolynBack.assignments['morning-carolyn'].includes('BRK - 6020'), 'BRK should return to Carolyn when she is active again');
+
+const lockedRemoval = L.removeAssignment(balanced, 'morning-carolyn', 'BRK - 6020');
+assert.ok(lockedRemoval.assignments['morning-carolyn'].includes('BRK - 6020'), 'Manual removal should not break Carolyn/BRK lock');
+
+// Manual TSA move must transfer, not duplicate, the engineer.
+const cameronOwnerBefore = L.tsaOwnersForEngineer(balanced, 'mid-cameron', true)[0];
+const targetAdmin = L.supportAdmins(balanced, true).find(a => a.id !== cameronOwnerBefore);
+const cameronMoved = L.assignEngineerToTsa(balanced, targetAdmin.id, 'mid-cameron');
+assert.deepStrictEqual(L.tsaOwnersForEngineer(cameronMoved, 'mid-cameron', true), [targetAdmin.id], 'Manual TSA move should keep one primary owner');
+
+// TSA vacation behavior: support rebalances, site assignments do not.
+const siteSnapshot = JSON.stringify(balanced.assignments);
+const ryanOut = L.setTsaVacation(balanced, 'tsa-ryan', true);
+assert.strictEqual(JSON.stringify(ryanOut.assignments), siteSnapshot, 'TSA vacation should not change site assignments');
+assert.deepStrictEqual(L.tsaDiagnostics(ryanOut).missingPrimary, [], 'Remaining TSAs should absorb primary pairings');
+assert.deepStrictEqual(L.tsaDiagnostics(ryanOut).uncoveredWindows, [], 'Amin + Ola should still provide full time-window coverage');
+
+const olaOut = L.setTsaVacation(balanced, 'tsa-ola', true);
+const olaOutDiag = L.tsaDiagnostics(olaOut);
+assert.deepStrictEqual(olaOutDiag.missingPrimary, [], 'Morning TSAs can absorb 12-4 primary pairings if Ola is out');
+assert.ok(olaOutDiag.uncoveredWindows.some(x => x.window === '4pm-8pm'), 'Without Ola, late midday TSA coverage should be flagged');
+
+console.log('All prototype v3 logic tests passed.');

@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Site Coverage Manager</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <div class="eyebrow">Operations Prototype</div>
+      <h1>Site Coverage Manager</h1>
+      <p>Assign sites, manage vacations, and catch coverage problems before the shift does.</p>
+    </div>
+    <div class="header-actions">
+      <a href="index.html" class="button secondary" style="text-decoration:none">Team view</a>
+      <button id="rebalanceBtn" class="button secondary strong">Rebalance all</button>
+      <button id="exportBtn" class="button secondary">Export snapshot</button>
+      <button id="resetBtn" class="button danger-ghost">Reset & rebalance</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="summary" class="summary-grid" aria-label="Coverage summary"></section>
+
+    <section class="notice" id="prototypeNotice">
+      <strong>Prototype mode:</strong> changes save in this browser only. Once the assignment workflow feels right, this can be connected to a shared database for multiple supervisors.
+    </section>
+
+    <section class="panel diagnostic-panel">
+      <div class="panel-heading">
+        <div>
+          <div class="eyebrow">Live checks</div>
+          <h2>Coverage diagnostics</h2>
+        </div>
+        <div class="legend">
+          <span><i class="dot danger"></i> Duplicate</span>
+          <span><i class="dot warning"></i> Needs coverage</span>
+          <span><i class="dot success"></i> Covered</span>
+        </div>
+      </div>
+      <div id="diagnostics" class="diagnostics"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-heading">
+        <div>
+          <div class="eyebrow">Shift 1</div>
+          <h2>Morning team</h2>
+          <p>6am–12pm: morning owns complete coverage for all 38 sites. At noon, designated sites hand off to midday.</p>
+        </div>
+        <div id="morningBadge"></div>
+      </div>
+      <div id="morningPool" class="coverage-pool"></div>
+      <div id="morningTeam" class="team-grid"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-heading">
+        <div>
+          <div class="eyebrow">Shift 2</div>
+          <h2>Midday takeover</h2>
+          <p>12pm–4pm: target roughly 40% of ticket workload on midday and 60% retained by morning.</p>
+        </div>
+        <div id="midBadge"></div>
+      </div>
+      <div id="middayPool" class="coverage-pool"></div>
+      <div id="midTeam" class="team-grid"></div>
+    </section>
+
+
+    <section class="panel tsa-panel">
+      <div class="panel-heading">
+        <div>
+          <div class="eyebrow">Support layer</div>
+          <h2>Technical Support Administrator assignments</h2>
+          <p>Ryan and Amin cover 6am–4pm; Ola covers 12pm–8pm. Primary pairings are mixed across both engineer shifts during 12–4, with automatic shift fallback before noon and after 4pm.</p>
+        </div>
+        <div id="tsaBadge"></div>
+      </div>
+      <div id="tsaTeam" class="tsa-grid"></div>
+      <div class="tsa-matrix-wrap">
+        <div class="subsection-heading">
+          <div>
+            <h3>Coverage matrix</h3>
+            <p>Shows the actual TSA coverage path by time window, including fallback coverage when the primary TSA is on the opposite shift.</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="tsa-matrix">
+            <thead>
+              <tr>
+                <th>Engineer</th>
+                <th>Role</th>
+                <th>Engineer shift</th>
+                <th>6am–12pm</th>
+                <th>12pm–4pm primary</th>
+                <th>4pm–8pm</th>
+              </tr>
+            </thead>
+            <tbody id="tsaMatrix"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-heading">
+        <div>
+          <div class="eyebrow">Fairness check</div>
+          <h2>Effective midday workload</h2>
+          <p>12pm–4pm effective workload. The rebalance engine uses tickets from the last 30 days, not just site count.</p>
+        </div>
+      </div>
+      <div id="workload" class="workload-grid"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-heading site-table-heading">
+        <div>
+          <div class="eyebrow">Source of truth</div>
+          <h2>All sites</h2>
+        </div>
+        <input id="siteSearch" class="search" type="search" placeholder="Search site or customer…" />
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Site</th>
+              <th>Customer</th>
+              <th>Tickets / 30d</th>
+              <th>Morning assignment</th>
+              <th>Midday takeover</th>
+              <th>Effective owner</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="siteTable"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="data.js"></script>
+  <script src="logic.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
