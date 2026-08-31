@@ -3,6 +3,7 @@ const seed = require('./data.js');
 const L = require('./logic.js');
 const S = require('./schedule.js');
 const DP = require('./daily-plan.js');
+const CB = require('./coverage-builder.js');
 
 assert.strictEqual(seed.sites.length, 38, 'Expected 38 sites from workbook');
 assert.strictEqual(L.totalTickets(seed), 1926, 'Expected 1,926 tickets from workbook');
@@ -29,22 +30,60 @@ const midOverlapLoads = L.peopleForShift(balanced, 'mid', true).map(p => L.perso
 assert.ok(Math.max(...morningOverlapLoads) - Math.min(...morningOverlapLoads) <= 10, 'Active morning overlap loads should be tightly balanced');
 assert.ok(Math.max(...midOverlapLoads) - Math.min(...midOverlapLoads) <= 10, 'Active midday loads should be tightly balanced');
 
-// v7 organization layer: full roster, named shifts, supervisors, and unconfigured-hour safety.
-assert.strictEqual(S.allStaff(seed).length, 56, 'Expected 53 supplied roster people plus Youssef, Bryan, and Ola retained from the prototype');
+// v9 organization layer: full roster, named shifts, supervisors, and unconfigured-hour safety.
+assert.strictEqual(S.allStaff(seed).length, 57, 'Expected 53 supplied roster people plus Youssef, Bryan, Ola, and Christopher retained in the prototype');
 assert.strictEqual(seed.rosterMeta.latestRosterCount, 53, 'Expected 53 rows in the supplied roster');
 assert.strictEqual(S.shiftDefinition(seed, 'weekday-morning').supervisorName, 'Matthew Weimer');
 assert.strictEqual(S.shiftDefinition(seed, 'weekday-mid').supervisorName, 'Chaitanya Jagarapu');
 assert.strictEqual(S.shiftDefinition(seed, 'weekday-night').supervisorName, 'Oluwafemi Okediran');
-assert.strictEqual(S.shiftDefinition(seed, 'weekend-day').supervisorName, 'Christopher');
+assert.strictEqual(S.shiftDefinition(seed, 'weekend-day').supervisorName, 'Christopher Ramessar');
 assert.strictEqual(S.shiftDefinition(seed, 'weekend-mid').supervisorName, 'Stephen Parker');
 assert.strictEqual(S.shiftDefinition(seed, 'weekend-night').supervisorName, 'Guillermo Rodriguez');
 assert.ok(S.allStaff(seed).some(p => p.fullName === 'Ryan Jackson' && p.role === 'tsa'), 'Weekend Day Ryan should resolve to Ryan Jackson');
+assert.ok(S.allStaff(seed).some(p => p.fullName === 'Christopher Ramessar' && S.isShiftSupervisor(seed, p)), 'Christopher should exist as the Weekend Day shift supervisor row');
 assert.ok(S.allStaff(seed).some(p => p.fullName === 'Ryan Mine' && p.operationalShiftId === 'weekday-mid'), 'Ryan Mine must remain a separate Weekday Mid employee');
-assert.strictEqual(S.getShift(seed, 'roster-matthew-weimer', '2026-08-31').unconfigured, true, 'Unknown Weekday Morning hours should not be guessed');
-const withWeekdayHours = S.setShiftDefault(seed, 'weekday-morning', '06:00', '16:00');
+assert.strictEqual(S.getShift(seed, 'roster-matthew-weimer', '2026-08-31').durationMinutes, 600, 'Weekday Morning should default to 6am-4pm');
+const withWeekdayHours = S.setShiftDefault(seed, 'weekday-morning', '07:00', '17:00');
 assert.strictEqual(S.getShift(withWeekdayHours, 'roster-matthew-weimer', '2026-08-31').durationMinutes, 600, 'Configured shift defaults should immediately schedule that roster');
 const withNightHours = S.setShiftDefault(seed, 'weekend-night', '20:00', '06:00');
 assert.strictEqual(S.getShift(withNightHours, 'roster-kevin-mitchell', '2026-08-31').durationMinutes, 600, 'Overnight shift defaults should cross midnight correctly');
+
+assert.strictEqual(S.operationalShiftId(seed, S.allStaff(seed).find(p => p.fullName === 'Andrea Capuras')), 'weekend-night', "Andrea should inherit Guillermo's shift for scheduling");
+assert.strictEqual(S.getShift(S.setShiftDefault(seed, 'weekend-night', '20:00', '06:00'), 'roster-andrea-capuras', '2026-09-04').durationMinutes, 600, "Andrea should use Guillermo's shift default when weekend-night hours are configured");
+assert.deepStrictEqual(S.visibleShiftIds(seed, '2026-09-04').filter(x => x.startsWith('weekday-')).sort(), ['weekday-night'], 'Friday should show weekday night only, not weekday morning or weekday mid');
+assert.ok(!S.visibleShiftIds(seed, '2026-09-05').includes('weekday-night'), 'Saturday should not show weekday night');
+const customDays = S.setShiftDays(seed, 'weekend-day', [6]);
+assert.strictEqual(S.shiftActiveOnDate(customDays, 'weekend-day', '2026-09-04'), false, 'Changing active days should remove Weekend Day from Friday');
+assert.strictEqual(S.shiftActiveOnDate(customDays, 'weekend-day', '2026-09-05'), true, 'Changing active days should retain Weekend Day on Saturday');
+const customSchedule = S.setShiftSchedule(seed, 'weekday-mid', '13:00', '21:00', [2,3]);
+assert.strictEqual(S.getShift(customSchedule, 'roster-divyesh-kabariya', '2026-09-01').start, '13:00', 'Shift schedule editor should change default hours');
+assert.strictEqual(S.shiftActiveOnDate(customSchedule, 'weekday-mid', '2026-09-03'), false, 'Shift schedule editor should change active days');
+const offDayOverride = S.setShift(customSchedule, 'roster-divyesh-kabariya', '2026-09-03', '12:00', '16:00');
+assert.strictEqual(S.getShift(offDayOverride, 'roster-divyesh-kabariya', '2026-09-03').durationMinutes, 240, 'A person-specific exception should be allowed even when the shift is normally inactive');
+
+// v9 multi-shift Coverage Builder: any selected operational shifts can own the 38 sites.
+const weekendPlan = CB.generatePlan(seed, '2026-09-05', ['weekend-day','weekend-mid']);
+assert.deepStrictEqual(weekendPlan.windows.map(w=>[w.start,w.end]), [[360,720],[720,960],[960,1200]], 'Weekend Day + Mid should generate familiar 6-12, 12-4, 4-8 windows');
+assert.ok(CB.health(seed, weekendPlan).ok, 'Weekend multi-shift plan should fully cover all sites');
+assert.ok(weekendPlan.windows.every(w=>!w.activeEngineers.some(id=>['tss','supervisor','manager'].includes(S.staffById(seed,id)?.role))), 'Supervisors and managers must never receive site assignments');
+const weekendOverlap = weekendPlan.windows.find(w=>w.start===720);
+const weekendLoads = CB.shiftLoadSummary(seed, weekendOverlap);
+const weekendMidLoad = weekendLoads.find(x=>x.shiftId==='weekend-mid');
+assert.ok(Math.abs(weekendMidLoad.pct-.40)<.02, 'Weekend Day/Mid generic builder should retain the 60/40 workload rule');
+
+const weekdayPlan = CB.generatePlan(seed, '2026-09-01', ['weekday-morning','weekday-mid']);
+assert.deepStrictEqual(weekdayPlan.windows.map(w=>[w.start,w.end]), [[360,720],[720,960],[960,1200]], 'Weekday Morning + Mid should use configured shift times');
+assert.ok(CB.health(seed, weekdayPlan).ok, 'Weekday supervisors should be able to generate complete site coverage');
+assert.ok(weekdayPlan.windows.some(w=>w.activeEngineers.includes('roster-divyesh-kabariya')), 'Weekday Mid engineers should receive site assignments');
+assert.ok(weekdayPlan.windows.some(w=>w.activeAdmins.includes('roster-luis-arteaga')), 'Weekday Mid TSA should participate in TSA support');
+
+const midNightPlan = CB.generatePlan(seed, '2026-09-04', ['weekend-mid','weekend-night']);
+assert.deepStrictEqual(midNightPlan.windows.map(w=>[w.start,w.end]), [[720,1200],[1200,1800]], 'Mid + Night should create an 8pm site handoff and support overnight coverage');
+assert.ok(CB.handoffs(seed, midNightPlan).some(h=>h.at===1200), 'Mid/Night plan should expose the 8pm handoff');
+assert.ok(midNightPlan.windows[1].activeAdmins.includes('roster-andrea-capuras'), 'Andrea should participate as Weekend Night TSA through supervisor-inherited shift');
+const publishedMulti = CB.publishPlan(seed, '2026-09-01', weekdayPlan);
+assert.strictEqual(CB.publishedPlan(publishedMulti, '2026-09-01').type, 'multi-shift', 'Published multi-shift plans should persist by date');
+assert.strictEqual(CB.isPlanStale(publishedMulti, '2026-09-01', CB.publishedPlan(publishedMulti, '2026-09-01')), false, 'Freshly published multi-shift plan should not be stale');
 
 // TSA layer: every active engineer gets exactly one primary pairing and full real-time coverage.
 const td = L.tsaDiagnostics(balanced);
@@ -121,7 +160,7 @@ assert.ok(olaOutDiag.uncoveredWindows.some(x => x.window === '4pm-8pm'), 'Withou
 
 // Daily staffing calendar: defaults, exceptions, duration, overlap, and date isolation.
 const scheduleDate = '2026-08-31';
-const nextDate = '2026-09-01';
+const nextDate = '2026-09-06';
 const chadDefault = S.getShift(balanced, 'morning-chad', scheduleDate);
 assert.strictEqual(chadDefault.start, '06:00', 'Morning default should start at 6am');
 assert.strictEqual(chadDefault.end, '16:00', 'Morning default should end at 4pm');
@@ -197,4 +236,4 @@ assert.ok(DP.assignmentLocks(extraLock).some(x => x.personId === 'morning-chad' 
 const extraLockPlan = DP.generatePlan(extraLock, scheduleDate);
 assert.ok(extraLockPlan.windows.filter(w=>w.activeEngineers.includes('morning-chad')).every(w=>w.siteOwners['DOUG-6010']==='morning-chad'), 'Configurable lock should hold while owner is available');
 
-console.log('All prototype v7 roster, shift, assignment, TSA, schedule, and Daily Plan tests passed.');
+console.log('All prototype v9 roster, configurable shift, multi-shift coverage, assignment, TSA, schedule, and Daily Plan tests passed.');

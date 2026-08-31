@@ -42,8 +42,38 @@
         <div id="rosterCountBadge"></div>
       </div>
       <div id="shiftSetup" class="shift-setup-grid"></div>
-      <div class="notice compact"><strong>Known defaults:</strong> Weekend Day is 6am–4pm and Weekend Mid is 12pm–8pm. Other shift hours were not supplied, so they start as unconfigured rather than guessed. Overnight defaults are supported.</div>
-      <div class="notice compact"><strong>Roster reconciliation:</strong> Youssef, Bryan, and Ola are retained from the working prototype because they were not in the latest roster table. Christopher is shown as Weekend Day supervisor from the Manager column even though no Christopher row was supplied. Andrea Capuras remains Unassigned until a shift is provided.</div>
+      <div class="notice compact"><strong>Default schedule:</strong> Morning shifts are 6am–4pm, Mid shifts are 12pm–8pm, Night shifts are 8pm–6am, and Commissioning/Leadership are 9am–5pm. Both hours and active days can be changed per shift.</div>
+      <div class="notice compact"><strong>Day patterns:</strong> Weekday Morning/Mid default to Mon–Thu, Weekday Night to Mon–Fri, Weekend shifts to Fri–Mon, and Commissioning/Leadership to Mon–Fri. Andrea Capuras inherits Weekend Night because she reports to Guillermo.</div>
+    </section>
+
+    <section class="panel coverage-builder-panel" aria-label="Multi-shift coverage builder">
+      <div class="panel-heading">
+        <div>
+          <div class="eyebrow">On-demand assignments</div>
+          <h2>Coverage Builder</h2>
+          <p>Select the shifts that should participate on the currently selected calendar date. The engine builds all 38 site assignments from actual hours, staffing, ticket workload, assignment locks, and TSA availability.</p>
+        </div>
+        <span id="coverageBuilderStatus" class="badge neutral">Not generated</span>
+      </div>
+      <div id="coverageShiftChoices" class="coverage-shift-choices"></div>
+      <div class="coverage-builder-actions">
+        <button id="coverageUseSuggestedBtn" type="button" class="button secondary">Use suggested shifts</button>
+        <button id="coverageGenerateBtn" type="button" class="button primary">Generate assignments</button>
+        <button id="coveragePublishBtn" type="button" class="button secondary strong" disabled>Publish to team</button>
+        <button id="coverageClearBtn" type="button" class="button danger-ghost">Clear published plan</button>
+      </div>
+      <div id="coverageBuilderHealth" class="health-grid"></div>
+      <div id="coverageBuilderSummary" class="coverage-builder-summary"></div>
+      <div class="daily-plan-columns coverage-builder-columns">
+        <div>
+          <div class="subsection-heading compact"><div><h3>Generated coverage windows</h3><p>Ownership changes automatically when selected shifts start, stop, or overlap.</p></div></div>
+          <div id="coverageBuilderWindows"></div>
+        </div>
+        <div>
+          <div class="subsection-heading compact"><div><h3>Generated handoffs</h3><p>Site and TSA transitions between the selected shifts.</p></div></div>
+          <div id="coverageBuilderHandoffs"></div>
+        </div>
+      </div>
     </section>
 
     <section class="panel schedule-shell" aria-label="Daily staffing calendar">
@@ -71,12 +101,12 @@
     </section>
 
 
-    <section class="panel daily-plan-panel" aria-label="Daily generated coverage plan">
+    <section id="legacyDailyPlanPanel" class="panel daily-plan-panel" aria-label="Weekend baseline daily generated coverage plan">
       <div class="panel-heading">
         <div>
-          <div class="eyebrow">Date-aware coverage</div>
-          <h2>Daily Plan</h2>
-          <p>Generated from the actual staffing calendar. Review changes, coverage health, and handoffs before publishing the plan to the team.</p>
+          <div class="eyebrow">Weekend baseline</div>
+          <h2>Weekend Day / Mid Daily Plan</h2>
+          <p>The original validated Weekend Day/Mid planning engine is retained here. Use Coverage Builder above for any other shift combination.</p>
         </div>
         <div class="daily-plan-actions">
           <span id="planStatus" class="badge neutral">Draft</span>
@@ -250,6 +280,7 @@
   <script src="schedule.js"></script>
   <script src="schedule-view.js"></script>
   <script src="daily-plan.js"></script>
+  <script src="coverage-builder.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

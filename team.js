@@ -4,15 +4,16 @@
   const S = SiteScheduleLogic;
   const SV = SiteScheduleView;
   const DP = DailyPlanLogic;
-  const STORAGE_KEY = 'site-coverage-manager-v7';
+  const CB = MultiShiftCoverage;
+  const STORAGE_KEY = 'site-coverage-manager-v9';
   const PERSON_KEY = 'site-coverage-team-person';
   let state = DP.normalizeState(loadState());
   let scheduleDateKey = SV.todayKey();
 
   const $ = id => document.getElementById(id);
   const esc = value => String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-  const personById = id => state.people.find(p => p.id === id);
-  const adminById = id => (state.supportAdmins || []).find(a => a.id === id);
+  const personById = id => S.staffById(state, id);
+  const adminById = id => S.staffById(state, id);
   const siteById = id => state.sites.find(s => s.id === id);
   const roleShort = (role, title) => title || (role === 'tce' ? 'TCE' : role === 'tse' ? 'TSE' : role === 'tsa' ? 'TSA' : role === 'tss' ? 'TSS' : String(role || '').toUpperCase());
   const roleLabel = (role, title) => title || (role === 'tce' ? 'Technical Control Engineer' : role === 'tse' ? 'Technical Support Engineer' : role === 'tsa' ? 'Technical Support Administrator' : role === 'tss' ? 'Technical Support Supervisor' : role || '');
@@ -46,7 +47,7 @@
   function renderPicker() {
     const groups = S.shiftCatalog(state).map(def => ({
       label: `${def.name} • Supervisor ${def.supervisorName || 'TBD'}`,
-      people: allPeople().filter(p => S.operationalShiftId(p) === def.id).sort((a,b)=>(a.fullName||a.name).localeCompare(b.fullName||b.name))
+      people: allPeople().filter(p => S.operationalShiftId(state, p) === def.id).sort((a,b)=>(a.fullName||a.name).localeCompare(b.fullName||b.name))
     })).filter(group => group.people.length);
     $('personSelect').innerHTML = '<option value="">Choose your name…</option>' + groups.map(group =>
       `<optgroup label="${esc(group.label)}">${group.people.map(p => `<option value="${esc(p.id)}">${esc(p.fullName || p.name)}${p.vacation ? ' — Vacation' : ''}</option>`).join('')}</optgroup>`
@@ -58,7 +59,7 @@
     const nonWorking = dailyShift.coverageStatus && dailyShift.coverageStatus !== 'working';
     const statusClass = person.vacation || dailyShift.off || nonWorking ? 'vacation' : '';
     const statusText = person.vacation ? 'On vacation' : dailyShift.off ? 'Not scheduled' : dailyShift.unconfigured ? 'Hours TBD' : nonWorking ? dailyShift.coverageStatus[0].toUpperCase()+dailyShift.coverageStatus.slice(1) : 'Scheduled';
-    const def = S.shiftDefinition(state, S.operationalShiftId(person));
+    const def = S.shiftDefinition(state, S.operationalShiftId(state, person));
     const shiftHours = def?.defaultStart && def?.defaultEnd ? `${S.formatTime(def.defaultStart)}–${S.formatTime(def.defaultEnd)}` : 'default hours TBD';
     const managerText = person.manager ? ` • Manager ${person.manager}` : '';
     return `<div class="profile-banner">
@@ -101,8 +102,10 @@
   }
 
   function planForSelectedDate() {
+    const multi = CB.publishedPlan(state, scheduleDateKey);
+    if (multi) return { plan: multi, published: true, stale: CB.isPlanStale(state, scheduleDateKey, multi), multiShift: true };
     const applied = DP.appliedPlan(state, scheduleDateKey);
-    return { plan: applied || DP.generatePlan(state, scheduleDateKey), published: Boolean(applied), stale: applied ? DP.isPlanStale(state, scheduleDateKey, applied) : false };
+    return { plan: applied || DP.generatePlan(state, scheduleDateKey), published: Boolean(applied), stale: applied ? DP.isPlanStale(state, scheduleDateKey, applied) : false, multiShift: false };
   }
 
   function dailyPlanCard(person) {
@@ -116,7 +119,7 @@
         if (!engineers.length) return '';
         return `<div class="coverage-path-row"><span>${esc(S.formatTime(S.minutesToTime(w.start)))}–${esc(S.formatTime(S.minutesToTime(w.end)))}</span><strong>${esc(engineers.join(', '))}</strong></div>`;
       }).filter(Boolean).join('');
-      return `<article class="team-card full daily-live-plan"><div class="card-kicker">${planInfo.published ? 'Published daily plan' : 'Generated daily plan'}</div><h3>Your date-aware TSA coverage</h3><p class="card-copy">This view follows the actual staffing windows for ${esc(SV.formatDateLabel(scheduleDateKey))}.${planInfo.stale ? ' A supervisor has staffing changes pending re-apply.' : ''}</p>${windows || '<div class="no-sites">No TSA coverage windows assigned to you for this date.</div>'}${personNote?`<div class="team-note"><strong>Supervisor note</strong><p>${esc(personNote)}</p></div>`:''}</article>`;
+      return `<article class="team-card full daily-live-plan"><div class="card-kicker">${planInfo.published ? 'Published daily plan' : 'Generated daily plan'}</div><h3>Your date-aware TSA coverage</h3><p class="card-copy">This view follows the published staffing windows for ${esc(SV.formatDateLabel(scheduleDateKey))}.${planInfo.stale ? ' A supervisor has staffing changes pending re-apply.' : ''}</p>${windows || '<div class="no-sites">No TSA coverage windows assigned to you for this date.</div>'}${personNote?`<div class="team-note"><strong>Supervisor note</strong><p>${esc(personNote)}</p></div>`:''}</article>`;
     }
     const windows = (plan.windows || []).filter(w => w.activeEngineers.includes(person.id)).map(w => {
       const sites = w.personSites?.[person.id] || [];
@@ -151,7 +154,7 @@
   }
 
   function directoryOnlyView(person) {
-    const def = S.shiftDefinition(state, S.operationalShiftId(person));
+    const def = S.shiftDefinition(state, S.operationalShiftId(state, person));
     const manager = person.manager || 'Not listed';
     return profileHeader(person) + `<div class="assignment-grid">${teamNoteCard()}<article class="team-card full"><div class="card-kicker">Roster assignment</div><h3>${esc(def?.name || 'Unassigned')} team member</h3><p class="card-copy">Manager: <strong>${esc(manager)}</strong> • Shift supervisor: <strong>${esc(def?.supervisorName || 'Not assigned')}</strong>.</p><p class="card-copy">Site and TSA workload assignments are not configured for this shift yet. The schedule calendar and supervisor relationship are active now, so this person can receive default hours and date-specific schedule exceptions.</p>${person.rosterNote?`<div class="team-note"><strong>Roster note</strong><p>${esc(person.rosterNote)}</p></div>`:''}</article></div>`;
   }
@@ -165,8 +168,9 @@
     }
     $('emptyState').hidden = true;
     $('assignmentView').hidden = false;
-    const coverageEngineer = state.people.some(p => p.id === person.id);
-    const coverageAdmin = (state.supportAdmins || []).some(p => p.id === person.id);
+    const publishedCoverage = CB.publishedPlan(state, scheduleDateKey);
+    const coverageEngineer = state.people.some(p => p.id === person.id) || Boolean(publishedCoverage?.windows?.some(w => (w.activeEngineers || []).includes(person.id)));
+    const coverageAdmin = (state.supportAdmins || []).some(p => p.id === person.id) || Boolean(publishedCoverage?.windows?.some(w => (w.activeAdmins || []).includes(person.id)));
     $('assignmentView').innerHTML = coverageAdmin ? tsaView(person) : coverageEngineer ? engineerView(person) : directoryOnlyView(person);
     localStorage.setItem(PERSON_KEY, person.id);
     const url = new URL(window.location.href);
@@ -184,20 +188,26 @@
 
   function renderDirectory() {
     const order = Object.fromEntries(S.shiftCatalog(state).map((def,i)=>[def.id,i]));
-    const ordered = allPeople().slice().sort((a,b)=>(order[S.operationalShiftId(a)]??99)-(order[S.operationalShiftId(b)]??99)||(a.fullName||a.name).localeCompare(b.fullName||b.name));
+    const ordered = allPeople().slice().sort((a,b)=>(order[S.operationalShiftId(state, a)]??99)-(order[S.operationalShiftId(state, b)]??99)||(a.fullName||a.name).localeCompare(b.fullName||b.name));
     $('teamDirectory').innerHTML = ordered.map(p => {
-      const def=S.shiftDefinition(state,S.operationalShiftId(p));
+      const def=S.shiftDefinition(state,S.operationalShiftId(state, p));
       return `<button class="directory-card ${p.vacation ? 'vacation' : ''}" data-person="${esc(p.id)}"><div class="top"><strong>${esc(p.fullName || p.name)}</strong><span class="mini-role">${esc(roleShort(p.role,p.title))}</span></div><small>${p.vacation ? 'On vacation' : esc(def?.name || 'Unassigned')} • ${esc(def?.supervisorName || 'No supervisor')}</small></button>`;
     }).join('');
-    const d = L.diagnostics(state);
-    const healthy = !d.morningMissing.length && !d.effectiveMissing.length && !d.tsa.uncoveredWindows.length;
-    $('coverageStatus').textContent = healthy ? '✓ Current Weekend coverage checks clear' : '⚠ Current Weekend coverage issue — see supervisor';
+    const multi = CB.publishedPlan(state, scheduleDateKey);
+    if (multi) {
+      const health = CB.health(state, multi);
+      $('coverageStatus').textContent = health.ok ? '✓ Published coverage plan is complete' : '⚠ Published coverage plan needs supervisor review';
+    } else {
+      const d = L.diagnostics(state);
+      const healthy = !d.morningMissing.length && !d.effectiveMissing.length && !d.tsa.uncoveredWindows.length;
+      $('coverageStatus').textContent = healthy ? '✓ Current Weekend coverage checks clear' : '⚠ Current Weekend coverage issue — see supervisor';
+    }
   }
 
   function renderShiftLeads() {
     $('shiftLeads').innerHTML = S.shiftCatalog(state).filter(def=>def.id!=='unassigned').map(def=>{
       const hours=def.defaultStart&&def.defaultEnd?`${S.formatTime(def.defaultStart)}–${S.formatTime(def.defaultEnd)}`:'Hours TBD';
-      const count=allPeople().filter(p=>S.operationalShiftId(p)===def.id).length;
+      const count=allPeople().filter(p=>S.operationalShiftId(state, p)===def.id).length;
       return `<div class="shift-lead-card"><span>${esc(def.name)}</span><strong>${esc(def.supervisorName || 'Not assigned')}</strong><small>${esc(def.supervisorTitle || 'Supervisor')} • ${count} people • ${esc(hours)}</small></div>`;
     }).join('');
   }

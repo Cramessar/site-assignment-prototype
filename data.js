@@ -4,7 +4,7 @@
   root.SITE_ASSIGNMENT_SEED = data;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   return {
-  "version": 7,
+  "version": 9,
   "sourceDate": "2026-08-31",
   "rules": {
     "overlapMorningTarget": 0.6,
@@ -471,278 +471,165 @@
       "id": "weekday-morning",
       "name": "Weekday Morning",
       "supervisorName": "Matthew Weimer",
-      "supervisorTitle": "TSS",
-      "defaultStart": null,
-      "defaultEnd": null,
+      "supervisorTitle": "Shift Supervisor",
+      "defaultStart": "06:00",
+      "defaultEnd": "16:00",
       "coverageGroup": null,
-      "supervisorId": "roster-matthew-weimer"
+      "supervisorId": "roster-matthew-weimer",
+      "activeDays": [
+        1,
+        2,
+        3,
+        4
+      ]
     },
     {
       "id": "weekday-mid",
       "name": "Weekday Mid",
       "supervisorName": "Chaitanya Jagarapu",
-      "supervisorTitle": "TSS",
-      "defaultStart": null,
-      "defaultEnd": null,
+      "supervisorTitle": "Shift Supervisor",
+      "defaultStart": "12:00",
+      "defaultEnd": "20:00",
       "coverageGroup": null,
-      "supervisorId": "roster-chaitanya-jagarapu"
+      "supervisorId": "roster-chaitanya-jagarapu",
+      "activeDays": [
+        1,
+        2,
+        3,
+        4
+      ]
     },
     {
       "id": "weekday-night",
       "name": "Weekday Night",
       "supervisorName": "Oluwafemi Okediran",
-      "supervisorTitle": "TSS",
-      "defaultStart": null,
-      "defaultEnd": null,
+      "supervisorTitle": "Shift Supervisor",
+      "defaultStart": "20:00",
+      "defaultEnd": "06:00",
       "coverageGroup": null,
-      "supervisorId": "roster-oluwafemi-okediran"
+      "supervisorId": "roster-oluwafemi-okediran",
+      "activeDays": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
     },
     {
       "id": "weekend-day",
       "name": "Weekend Day",
-      "supervisorName": "Christopher",
+      "supervisorName": "Christopher Ramessar",
       "supervisorTitle": "Shift Supervisor",
       "defaultStart": "06:00",
       "defaultEnd": "16:00",
       "coverageGroup": "morning",
-      "supervisorId": null
+      "supervisorId": "roster-christopher-ramessar",
+      "activeDays": [
+        5,
+        6,
+        0,
+        1
+      ]
     },
     {
       "id": "weekend-mid",
       "name": "Weekend Mid",
       "supervisorName": "Stephen Parker",
-      "supervisorTitle": "TSS",
+      "supervisorTitle": "Shift Supervisor",
       "defaultStart": "12:00",
       "defaultEnd": "20:00",
       "coverageGroup": "mid",
-      "supervisorId": "roster-stephen-parker"
+      "supervisorId": "roster-stephen-parker",
+      "activeDays": [
+        5,
+        6,
+        0,
+        1
+      ]
     },
     {
       "id": "weekend-night",
       "name": "Weekend Night",
       "supervisorName": "Guillermo Rodriguez",
-      "supervisorTitle": "TSS",
-      "defaultStart": null,
-      "defaultEnd": null,
+      "supervisorTitle": "Shift Supervisor",
+      "defaultStart": "20:00",
+      "defaultEnd": "06:00",
       "coverageGroup": null,
-      "supervisorId": "roster-guillermo-rodriguez"
+      "supervisorId": "roster-guillermo-rodriguez",
+      "activeDays": [
+        5,
+        6,
+        0,
+        1
+      ]
     },
     {
       "id": "commissioning",
       "name": "Commissioning",
       "supervisorName": "Michael Westfield",
       "supervisorTitle": "Manager",
-      "defaultStart": null,
-      "defaultEnd": null,
+      "defaultStart": "09:00",
+      "defaultEnd": "17:00",
       "coverageGroup": null,
-      "supervisorId": "roster-michael-westfield"
+      "supervisorId": "roster-michael-westfield",
+      "activeDays": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
     },
     {
       "id": "leader",
       "name": "Leader",
       "supervisorName": "Brian",
       "supervisorTitle": "Leadership",
-      "defaultStart": null,
-      "defaultEnd": null,
+      "defaultStart": "09:00",
+      "defaultEnd": "17:00",
       "coverageGroup": null,
-      "supervisorId": null
+      "supervisorId": null,
+      "activeDays": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
     },
     {
       "id": "unassigned",
       "name": "Unassigned",
       "supervisorName": "Guillermo Rodriguez",
-      "supervisorTitle": "TSS",
+      "supervisorTitle": "Shift Supervisor",
       "defaultStart": null,
       "defaultEnd": null,
       "coverageGroup": null,
-      "supervisorId": "roster-guillermo-rodriguez"
+      "supervisorId": "roster-guillermo-rodriguez",
+      "activeDays": []
     }
   ],
   "directoryPeople": [
     {
-      "id": "roster-kevin-mitchell",
-      "name": "Kevin",
-      "fullName": "Kevin Mitchell",
-      "title": "TSE",
-      "role": "tse",
-      "manager": "Guillermo",
-      "operationalShiftId": "weekend-night",
-      "vacation": false,
-      "directoryOnly": true
-    },
-    {
-      "id": "roster-khalid-javed",
-      "name": "Khalid",
-      "fullName": "Khalid Javed",
-      "title": "TSE",
-      "role": "tse",
-      "manager": "Guillermo",
-      "operationalShiftId": "weekend-night",
-      "vacation": false,
-      "directoryOnly": true
-    },
-    {
-      "id": "roster-chaitanya-jagarapu",
-      "name": "Chaitanya",
-      "fullName": "Chaitanya Jagarapu",
-      "title": "TSS",
-      "role": "tss",
-      "manager": "Tony",
-      "operationalShiftId": "weekday-mid",
-      "vacation": false,
-      "directoryOnly": true
-    },
-    {
-      "id": "roster-kemar-reid",
-      "name": "Kemar",
-      "fullName": "Kemar Reid",
-      "title": "Sr TCE",
-      "role": "tce",
-      "manager": "Chaitu",
-      "operationalShiftId": "weekday-mid",
-      "vacation": false,
-      "directoryOnly": true
-    },
-    {
-      "id": "roster-ryan-mine",
-      "name": "Ryan",
-      "fullName": "Ryan Mine",
-      "title": "Sr TSE",
-      "role": "tse",
-      "manager": "Chaitu",
-      "operationalShiftId": "weekday-mid",
-      "vacation": false,
-      "directoryOnly": true
-    },
-    {
-      "id": "roster-trong-tran",
-      "name": "Trong",
-      "fullName": "Trong Tran",
-      "title": "Sr TSE",
-      "role": "tse",
-      "manager": "Chaitu",
-      "operationalShiftId": "weekday-mid",
-      "vacation": false,
-      "directoryOnly": true
-    },
-    {
-      "id": "roster-clark-workman",
-      "name": "Clark",
-      "fullName": "Clark Workman",
-      "title": "Sr TCE",
-      "role": "tce",
-      "manager": "Guillermo",
-      "operationalShiftId": "weekend-night",
-      "vacation": false,
-      "directoryOnly": true
-    },
-    {
-      "id": "roster-matthew-weimer",
-      "name": "Matthew",
-      "fullName": "Matthew Weimer",
-      "title": "TSS",
-      "role": "tss",
-      "manager": "Tony",
-      "operationalShiftId": "weekday-morning",
-      "vacation": false,
-      "directoryOnly": true
-    },
-    {
-      "id": "roster-cary-lemasters",
-      "name": "Cary",
-      "fullName": "Cary Lemasters",
-      "title": "Sr TCE",
-      "role": "tce",
-      "manager": "Matt",
-      "operationalShiftId": "weekday-morning",
-      "vacation": false,
-      "directoryOnly": true
-    },
-    {
-      "id": "roster-allen-gonzalez",
-      "name": "Allen",
-      "fullName": "Allen Gonzalez",
-      "title": "TSE",
-      "role": "tse",
-      "manager": "Matt",
-      "operationalShiftId": "weekday-morning",
-      "vacation": false,
-      "directoryOnly": true
-    },
-    {
-      "id": "roster-matthew-ages",
-      "name": "Matthew",
-      "fullName": "Matthew Ages",
-      "title": "TSE",
-      "role": "tse",
-      "manager": "Femi",
-      "operationalShiftId": "weekday-night",
-      "vacation": false,
-      "directoryOnly": true
-    },
-    {
-      "id": "roster-oluwafemi-okediran",
-      "name": "Oluwafemi",
-      "fullName": "Oluwafemi Okediran",
-      "title": "TSS",
-      "role": "tss",
-      "manager": "Tony",
-      "operationalShiftId": "weekday-night",
-      "vacation": false,
-      "directoryOnly": true
-    },
-    {
-      "id": "roster-alex-graser",
-      "name": "Alex",
-      "fullName": "Alex Graser",
-      "title": "Sr TSE",
-      "role": "tse",
-      "manager": "Matt",
-      "operationalShiftId": "weekday-morning",
-      "vacation": false,
-      "directoryOnly": true
-    },
-    {
-      "id": "roster-anthony-mccain",
+      "id": "roster-anthony-vandiver",
       "name": "Anthony",
-      "fullName": "Anthony McCain",
-      "title": "TSA",
-      "role": "tsa",
-      "manager": "Matt",
-      "operationalShiftId": "weekday-morning",
+      "fullName": "Anthony Vandiver",
+      "title": "PM",
+      "role": "pm",
+      "manager": "Michael",
+      "operationalShiftId": "commissioning",
       "vacation": false,
       "directoryOnly": true
     },
     {
-      "id": "roster-cav-lemasters",
-      "name": "Cav",
-      "fullName": "Cav Lemasters",
-      "title": "Sr TSE",
-      "role": "tse",
-      "manager": "Matt",
-      "operationalShiftId": "weekday-morning",
-      "vacation": false,
-      "directoryOnly": true
-    },
-    {
-      "id": "roster-tony-rodriguez",
-      "name": "Tony",
-      "fullName": "Tony Rodriguez",
-      "title": "Manager",
-      "role": "manager",
-      "manager": "Brian",
-      "operationalShiftId": "leader",
-      "vacation": false,
-      "directoryOnly": true
-    },
-    {
-      "id": "roster-luis-arteaga",
-      "name": "Luis",
-      "fullName": "Luis Arteaga",
-      "title": "TSA",
-      "role": "tsa",
-      "manager": "Chaitu",
-      "operationalShiftId": "weekday-mid",
+      "id": "roster-carl-scott",
+      "name": "Carl",
+      "fullName": "Carl Scott",
+      "title": "TCE",
+      "role": "tce",
+      "manager": "Michael",
+      "operationalShiftId": "commissioning",
       "vacation": false,
       "directoryOnly": true
     },
@@ -758,24 +645,68 @@
       "directoryOnly": true
     },
     {
-      "id": "roster-matt-cain",
-      "name": "Matt",
-      "fullName": "Matt Cain",
-      "title": "TCE",
-      "role": "tce",
-      "manager": "Matt",
-      "operationalShiftId": "weekday-morning",
+      "id": "roster-paul-trunfio",
+      "name": "Paul",
+      "fullName": "Paul Trunfio",
+      "title": "TSE",
+      "role": "tse",
+      "manager": "Michael",
+      "operationalShiftId": "commissioning",
       "vacation": false,
       "directoryOnly": true
     },
     {
-      "id": "roster-kencole-deronville",
-      "name": "Kencole",
-      "fullName": "Kencole Deronville",
+      "id": "roster-michael-westfield",
+      "name": "Michael",
+      "fullName": "Michael Westfield",
+      "title": "Manager",
+      "role": "manager",
+      "manager": "Brian",
+      "operationalShiftId": "leader",
+      "vacation": false,
+      "directoryOnly": true
+    },
+    {
+      "id": "roster-tony-rodriguez",
+      "name": "Tony",
+      "fullName": "Tony Rodriguez",
+      "title": "Manager",
+      "role": "manager",
+      "manager": "Brian",
+      "operationalShiftId": "leader",
+      "vacation": false,
+      "directoryOnly": true
+    },
+    {
+      "id": "roster-andrea-capuras",
+      "name": "Andrea",
+      "fullName": "Andrea Capuras",
       "title": "TSA",
       "role": "tsa",
-      "manager": "Matt",
-      "operationalShiftId": "weekday-morning",
+      "manager": "Guillermo",
+      "operationalShiftId": "unassigned",
+      "vacation": false,
+      "directoryOnly": true
+    },
+    {
+      "id": "roster-chaitanya-jagarapu",
+      "name": "Chaitanya",
+      "fullName": "Chaitanya Jagarapu",
+      "title": "TSS",
+      "role": "tss",
+      "manager": "Tony",
+      "operationalShiftId": "weekday-mid",
+      "vacation": false,
+      "directoryOnly": true
+    },
+    {
+      "id": "roster-darwin-mounsey",
+      "name": "Darwin",
+      "fullName": "Darwin Mounsey",
+      "title": "TSE",
+      "role": "tse",
+      "manager": "Chaitu",
+      "operationalShiftId": "weekday-mid",
       "vacation": false,
       "directoryOnly": true
     },
@@ -802,35 +733,156 @@
       "directoryOnly": true
     },
     {
-      "id": "roster-stephen-parker",
-      "name": "Stephen",
-      "fullName": "Stephen Parker",
-      "title": "TSS",
-      "role": "tss",
-      "manager": "Tony",
-      "operationalShiftId": "weekend-mid",
-      "vacation": false,
-      "directoryOnly": true
-    },
-    {
-      "id": "roster-patrick-gamache",
-      "name": "Patrick",
-      "fullName": "Patrick Gamache",
+      "id": "roster-kemar-reid",
+      "name": "Kemar",
+      "fullName": "Kemar Reid",
       "title": "Sr TCE",
       "role": "tce",
-      "manager": "Femi",
-      "operationalShiftId": "weekday-night",
+      "manager": "Chaitu",
+      "operationalShiftId": "weekday-mid",
       "vacation": false,
       "directoryOnly": true
     },
     {
-      "id": "roster-darwin-mounsey",
-      "name": "Darwin",
-      "fullName": "Darwin Mounsey",
+      "id": "roster-kyle-souza",
+      "name": "Kyle",
+      "fullName": "Kyle Souza",
       "title": "TSE",
       "role": "tse",
       "manager": "Chaitu",
       "operationalShiftId": "weekday-mid",
+      "vacation": false,
+      "directoryOnly": true
+    },
+    {
+      "id": "roster-luis-arteaga",
+      "name": "Luis",
+      "fullName": "Luis Arteaga",
+      "title": "TSA",
+      "role": "tsa",
+      "manager": "Chaitu",
+      "operationalShiftId": "weekday-mid",
+      "vacation": false,
+      "directoryOnly": true
+    },
+    {
+      "id": "roster-ryan-mine",
+      "name": "Ryan",
+      "fullName": "Ryan Mine",
+      "title": "Sr TSE",
+      "role": "tse",
+      "manager": "Chaitu",
+      "operationalShiftId": "weekday-mid",
+      "vacation": false,
+      "directoryOnly": true
+    },
+    {
+      "id": "roster-sarah-doram",
+      "name": "Sarah",
+      "fullName": "Sarah Doram",
+      "title": "TSA",
+      "role": "tsa",
+      "manager": "Femi",
+      "operationalShiftId": "weekday-mid",
+      "vacation": false,
+      "directoryOnly": true
+    },
+    {
+      "id": "roster-trong-tran",
+      "name": "Trong",
+      "fullName": "Trong Tran",
+      "title": "Sr TSE",
+      "role": "tse",
+      "manager": "Chaitu",
+      "operationalShiftId": "weekday-mid",
+      "vacation": false,
+      "directoryOnly": true
+    },
+    {
+      "id": "roster-alex-graser",
+      "name": "Alex",
+      "fullName": "Alex Graser",
+      "title": "Sr TSE",
+      "role": "tse",
+      "manager": "Matt",
+      "operationalShiftId": "weekday-morning",
+      "vacation": false,
+      "directoryOnly": true
+    },
+    {
+      "id": "roster-allen-gonzalez",
+      "name": "Allen",
+      "fullName": "Allen Gonzalez",
+      "title": "TSE",
+      "role": "tse",
+      "manager": "Matt",
+      "operationalShiftId": "weekday-morning",
+      "vacation": false,
+      "directoryOnly": true
+    },
+    {
+      "id": "roster-anthony-mccain",
+      "name": "Anthony",
+      "fullName": "Anthony McCain",
+      "title": "TSA",
+      "role": "tsa",
+      "manager": "Matt",
+      "operationalShiftId": "weekday-morning",
+      "vacation": false,
+      "directoryOnly": true
+    },
+    {
+      "id": "roster-cary-lemasters",
+      "name": "Cary",
+      "fullName": "Cary Lemasters",
+      "title": "Sr TCE",
+      "role": "tce",
+      "manager": "Matt",
+      "operationalShiftId": "weekday-morning",
+      "vacation": false,
+      "directoryOnly": true
+    },
+    {
+      "id": "roster-cav-lemasters",
+      "name": "Cav",
+      "fullName": "Cav Lemasters",
+      "title": "Sr TSE",
+      "role": "tse",
+      "manager": "Matt",
+      "operationalShiftId": "weekday-morning",
+      "vacation": false,
+      "directoryOnly": true
+    },
+    {
+      "id": "roster-kencole-deronville",
+      "name": "Kencole",
+      "fullName": "Kencole Deronville",
+      "title": "TSA",
+      "role": "tsa",
+      "manager": "Matt",
+      "operationalShiftId": "weekday-morning",
+      "vacation": false,
+      "directoryOnly": true
+    },
+    {
+      "id": "roster-matt-cain",
+      "name": "Matt",
+      "fullName": "Matt Cain",
+      "title": "TCE",
+      "role": "tce",
+      "manager": "Matt",
+      "operationalShiftId": "weekday-morning",
+      "vacation": false,
+      "directoryOnly": true
+    },
+    {
+      "id": "roster-matthew-weimer",
+      "name": "Matthew",
+      "fullName": "Matthew Weimer",
+      "title": "TSS",
+      "role": "tss",
+      "manager": "Tony",
+      "operationalShiftId": "weekday-morning",
       "vacation": false,
       "directoryOnly": true
     },
@@ -846,9 +898,31 @@
       "directoryOnly": true
     },
     {
-      "id": "roster-tyler-mackey",
-      "name": "Tyler",
-      "fullName": "Tyler Mackey",
+      "id": "roster-jaxon-weis",
+      "name": "Jaxon",
+      "fullName": "Jaxon Weis",
+      "title": "Sr TCE",
+      "role": "tce",
+      "manager": "Femi",
+      "operationalShiftId": "weekday-night",
+      "vacation": false,
+      "directoryOnly": true
+    },
+    {
+      "id": "roster-lawson-medley",
+      "name": "Lawson",
+      "fullName": "Lawson Medley",
+      "title": "TCE",
+      "role": "tce",
+      "manager": "Femi",
+      "operationalShiftId": "weekday-night",
+      "vacation": false,
+      "directoryOnly": true
+    },
+    {
+      "id": "roster-matt-fernandez",
+      "name": "Matt",
+      "fullName": "Matt Fernandez",
       "title": "TSE",
       "role": "tse",
       "manager": "Femi",
@@ -857,13 +931,57 @@
       "directoryOnly": true
     },
     {
-      "id": "roster-jonathan-sandoval",
-      "name": "Jonathan",
-      "fullName": "Jonathan Sandoval",
-      "title": "TSA",
-      "role": "tsa",
-      "manager": "Guillermo",
-      "operationalShiftId": "weekend-night",
+      "id": "roster-matthew-ages",
+      "name": "Matthew",
+      "fullName": "Matthew Ages",
+      "title": "TSE",
+      "role": "tse",
+      "manager": "Femi",
+      "operationalShiftId": "weekday-night",
+      "vacation": false,
+      "directoryOnly": true
+    },
+    {
+      "id": "roster-oluwafemi-okediran",
+      "name": "Oluwafemi",
+      "fullName": "Oluwafemi Okediran",
+      "title": "TSS",
+      "role": "tss",
+      "manager": "Tony",
+      "operationalShiftId": "weekday-night",
+      "vacation": false,
+      "directoryOnly": true
+    },
+    {
+      "id": "roster-patrick-gamache",
+      "name": "Patrick",
+      "fullName": "Patrick Gamache",
+      "title": "Sr TCE",
+      "role": "tce",
+      "manager": "Femi",
+      "operationalShiftId": "weekday-night",
+      "vacation": false,
+      "directoryOnly": true
+    },
+    {
+      "id": "roster-roshon-williams",
+      "name": "Roshon",
+      "fullName": "Roshon Williams",
+      "title": "TSE",
+      "role": "tse",
+      "manager": "Femi",
+      "operationalShiftId": "weekday-night",
+      "vacation": false,
+      "directoryOnly": true
+    },
+    {
+      "id": "roster-tyler-mackey",
+      "name": "Tyler",
+      "fullName": "Tyler Mackey",
+      "title": "TSE",
+      "role": "tse",
+      "manager": "Femi",
+      "operationalShiftId": "weekday-night",
       "vacation": false,
       "directoryOnly": true
     },
@@ -879,22 +997,33 @@
       "directoryOnly": true
     },
     {
-      "id": "roster-jaxon-weis",
-      "name": "Jaxon",
-      "fullName": "Jaxon Weis",
-      "title": "Sr TCE",
-      "role": "tce",
-      "manager": "Femi",
-      "operationalShiftId": "weekday-night",
+      "id": "roster-christopher-ramessar",
+      "name": "Christopher",
+      "fullName": "Christopher Ramessar",
+      "title": "Shift Supervisor",
+      "role": "supervisor",
+      "manager": "Tony",
+      "operationalShiftId": "weekend-day",
       "vacation": false,
       "directoryOnly": true
     },
     {
-      "id": "roster-michael-herrera",
-      "name": "Michael",
-      "fullName": "Michael Herrera",
-      "title": "TSE BP",
-      "role": "tse",
+      "id": "roster-stephen-parker",
+      "name": "Stephen",
+      "fullName": "Stephen Parker",
+      "title": "TSS",
+      "role": "tss",
+      "manager": "Tony",
+      "operationalShiftId": "weekend-mid",
+      "vacation": false,
+      "directoryOnly": true
+    },
+    {
+      "id": "roster-clark-workman",
+      "name": "Clark",
+      "fullName": "Clark Workman",
+      "title": "Sr TCE",
+      "role": "tce",
       "manager": "Guillermo",
       "operationalShiftId": "weekend-night",
       "vacation": false,
@@ -912,46 +1041,46 @@
       "directoryOnly": true
     },
     {
-      "id": "roster-matt-fernandez",
-      "name": "Matt",
-      "fullName": "Matt Fernandez",
+      "id": "roster-jonathan-sandoval",
+      "name": "Jonathan",
+      "fullName": "Jonathan Sandoval",
+      "title": "TSA",
+      "role": "tsa",
+      "manager": "Guillermo",
+      "operationalShiftId": "weekend-night",
+      "vacation": false,
+      "directoryOnly": true
+    },
+    {
+      "id": "roster-kevin-mitchell",
+      "name": "Kevin",
+      "fullName": "Kevin Mitchell",
       "title": "TSE",
       "role": "tse",
-      "manager": "Femi",
-      "operationalShiftId": "weekday-night",
+      "manager": "Guillermo",
+      "operationalShiftId": "weekend-night",
       "vacation": false,
       "directoryOnly": true
     },
     {
-      "id": "roster-carl-scott",
-      "name": "Carl",
-      "fullName": "Carl Scott",
-      "title": "TCE",
-      "role": "tce",
-      "manager": "Michael",
-      "operationalShiftId": "commissioning",
-      "vacation": false,
-      "directoryOnly": true
-    },
-    {
-      "id": "roster-roshon-williams",
-      "name": "Roshon",
-      "fullName": "Roshon Williams",
+      "id": "roster-khalid-javed",
+      "name": "Khalid",
+      "fullName": "Khalid Javed",
       "title": "TSE",
       "role": "tse",
-      "manager": "Femi",
-      "operationalShiftId": "weekday-night",
+      "manager": "Guillermo",
+      "operationalShiftId": "weekend-night",
       "vacation": false,
       "directoryOnly": true
     },
     {
-      "id": "roster-anthony-vandiver",
-      "name": "Anthony",
-      "fullName": "Anthony Vandiver",
-      "title": "PM",
-      "role": "pm",
-      "manager": "Michael",
-      "operationalShiftId": "commissioning",
+      "id": "roster-michael-herrera",
+      "name": "Michael",
+      "fullName": "Michael Herrera",
+      "title": "TSE BP",
+      "role": "tse",
+      "manager": "Guillermo",
+      "operationalShiftId": "weekend-night",
       "vacation": false,
       "directoryOnly": true
     },
@@ -965,72 +1094,6 @@
       "operationalShiftId": "weekend-night",
       "vacation": false,
       "directoryOnly": true
-    },
-    {
-      "id": "roster-lawson-medley",
-      "name": "Lawson",
-      "fullName": "Lawson Medley",
-      "title": "TCE",
-      "role": "tce",
-      "manager": "Femi",
-      "operationalShiftId": "weekday-night",
-      "vacation": false,
-      "directoryOnly": true
-    },
-    {
-      "id": "roster-michael-westfield",
-      "name": "Michael",
-      "fullName": "Michael Westfield",
-      "title": "Manager",
-      "role": "manager",
-      "manager": "Brian",
-      "operationalShiftId": "leader",
-      "vacation": false,
-      "directoryOnly": true
-    },
-    {
-      "id": "roster-paul-trunfio",
-      "name": "Paul",
-      "fullName": "Paul Trunfio",
-      "title": "TSE",
-      "role": "tse",
-      "manager": "Michael",
-      "operationalShiftId": "commissioning",
-      "vacation": false,
-      "directoryOnly": true
-    },
-    {
-      "id": "roster-sarah-doram",
-      "name": "Sarah",
-      "fullName": "Sarah Doram",
-      "title": "TSA",
-      "role": "tsa",
-      "manager": "Femi",
-      "operationalShiftId": "weekday-mid",
-      "vacation": false,
-      "directoryOnly": true
-    },
-    {
-      "id": "roster-andrea-capuras",
-      "name": "Andrea",
-      "fullName": "Andrea Capuras",
-      "title": "TSA",
-      "role": "tsa",
-      "manager": "Guillermo",
-      "operationalShiftId": "unassigned",
-      "vacation": false,
-      "directoryOnly": true
-    },
-    {
-      "id": "roster-kyle-souza",
-      "name": "Kyle",
-      "fullName": "Kyle Souza",
-      "title": "TSE",
-      "role": "tse",
-      "manager": "Chaitu",
-      "operationalShiftId": "weekday-mid",
-      "vacation": false,
-      "directoryOnly": true
     }
   ],
   "rosterMeta": {
@@ -1039,8 +1102,10 @@
     "retainedPrototypePeople": [
       "Youssef",
       "Bryan",
-      "Ola"
+      "Ola",
+      "Christopher Ramessar"
     ]
-  }
+  },
+  "coveragePlans": {}
 };
 });

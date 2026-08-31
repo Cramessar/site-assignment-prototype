@@ -4,13 +4,16 @@
   const S = SiteScheduleLogic;
   const SV = SiteScheduleView;
   const DP = DailyPlanLogic;
-  const STORAGE_KEY = 'site-coverage-manager-v7';
+  const CB = MultiShiftCoverage;
+  const STORAGE_KEY = 'site-coverage-manager-v9';
   let state = DP.normalizeState(loadState());
   let committedState = DP.clone(state);
   let scenarioMode = false;
   let undoStack = [];
   let searchTerm = '';
   let scheduleDateKey = SV.todayKey();
+  let coverageSelectedShiftIds = [];
+  let coverageDraftPlan = null;
 
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
@@ -43,6 +46,7 @@
 
   function setState(next, message) {
     next = DP.normalizeState(next);
+    coverageDraftPlan = null;
     if (scenarioMode) {
       state = next;
       render();
@@ -300,25 +304,93 @@
     const staff = S.allStaff(state);
     const catalog = S.shiftCatalog(state);
     const supplied = state.rosterMeta?.latestRosterCount || staff.length;
+    const dayLabels = [['S',0,'Sunday'],['M',1,'Monday'],['T',2,'Tuesday'],['W',3,'Wednesday'],['T',4,'Thursday'],['F',5,'Friday'],['S',6,'Saturday']];
     $('rosterCountBadge').innerHTML = `<span class="badge neutral">${staff.length} people in prototype • ${supplied} supplied roster rows</span>`;
     $('shiftSetup').innerHTML = catalog.map(def => {
-      const members = staff.filter(p => S.operationalShiftId(p) === def.id);
+      const members = staff.filter(p => S.operationalShiftId(state, p) === def.id);
       if (!members.length && def.id === 'unassigned') return '';
       const configured = Boolean(def.defaultStart && def.defaultEnd);
       const coverage = def.coverageGroup ? `<span class="badge success">Current site coverage</span>` : '';
       const hours = configured ? `${S.formatTime(def.defaultStart)}–${S.formatTime(def.defaultEnd)}` : 'Hours not configured';
+      const activeDays = new Set(Array.isArray(def.activeDays) ? def.activeDays.map(Number) : []);
+      const dayButtons = dayLabels.map(([short,day,name]) => `<label class="shift-day-toggle" title="${name}"><input type="checkbox" data-shift-day="${day}" ${activeDays.has(day)?'checked':''}><span>${short}</span></label>`).join('');
       return `<article class="shift-setup-card ${configured ? '' : 'needs-hours'}">
         <div class="shift-setup-head"><div><h3>${esc(def.name)}</h3><p><strong>${esc(def.supervisorName || 'Not assigned')}</strong> • ${esc(def.supervisorTitle || 'Supervisor')}</p></div>${coverage}</div>
         <div class="shift-setup-meta"><span>${members.length} team member${members.length===1?'':'s'}</span><span>${esc(hours)}</span></div>
+        <div class="shift-days"><span>Active days</span><div class="shift-day-row">${dayButtons}</div></div>
         <div class="shift-default-editor" data-shift-editor="${esc(def.id)}">
           <label><span>Default start</span><input type="time" data-shift-default-start="${esc(def.id)}" value="${esc(def.defaultStart || '')}"></label>
           <label><span>Default end</span><input type="time" data-shift-default-end="${esc(def.id)}" value="${esc(def.defaultEnd || '')}"></label>
-          <button type="button" class="button primary small" data-shift-default-save="${esc(def.id)}">Save default</button>
-          ${configured && !def.coverageGroup ? `<button type="button" class="button secondary small" data-shift-default-clear="${esc(def.id)}">Clear</button>` : ''}
+          <button type="button" class="button primary small" data-shift-default-save="${esc(def.id)}">Save schedule</button>
         </div>
-        ${def.id === 'unassigned' ? '<small class="shift-setup-note">Andrea Capuras has no shift value in the supplied roster, so she is shown here until assigned.</small>' : ''}
       </article>`;
     }).join('');
+  }
+
+  function suggestedCoverageShifts() {
+    const active = new Set(S.visibleShiftIds(state, scheduleDateKey));
+    if (active.has('weekend-day') && active.has('weekend-mid')) return ['weekend-day','weekend-mid'];
+    if (active.has('weekday-morning') && active.has('weekday-mid')) return ['weekday-morning','weekday-mid'];
+    const eligible = CB.eligibleShifts(state, scheduleDateKey).filter(x=>x.active&&x.assignable).map(x=>x.def.id);
+    return eligible.slice(0,2);
+  }
+
+  function ensureCoverageSelection(force=false) {
+    const eligible = new Set(CB.eligibleShifts(state, scheduleDateKey).filter(x=>x.active&&x.assignable).map(x=>x.def.id));
+    coverageSelectedShiftIds = coverageSelectedShiftIds.filter(id=>eligible.has(id));
+    if (force || !coverageSelectedShiftIds.length) coverageSelectedShiftIds = suggestedCoverageShifts().filter(id=>eligible.has(id));
+  }
+
+  function coverageStaffName(id) { return S.staffById(state,id)?.fullName || S.staffById(state,id)?.name || id || 'Uncovered'; }
+
+  function renderCoverageBuilder() {
+    ensureCoverageSelection(false);
+    const choices = CB.eligibleShifts(state, scheduleDateKey);
+    $('coverageShiftChoices').innerHTML = choices.filter(x=>x.def.id!=='unassigned').map(({def,engineers,tsas,active,assignable})=>{
+      const selected=coverageSelectedShiftIds.includes(def.id), disabled=!active||!assignable||!def.defaultStart||!def.defaultEnd;
+      const reason=!active?'Not active on this date':!assignable?'No TCE/TSE staff':!def.defaultStart||!def.defaultEnd?'Hours not configured':'';
+      const hours=def.defaultStart&&def.defaultEnd?`${S.formatTime(def.defaultStart)}–${S.formatTime(def.defaultEnd)}`:'Hours TBD';
+      return `<label class="coverage-shift-choice ${selected?'selected':''} ${disabled?'disabled':''}"><input type="checkbox" data-coverage-shift="${esc(def.id)}" ${selected?'checked':''} ${disabled?'disabled':''}><span class="coverage-choice-name">${esc(def.name)}</span><span>${engineers.length} engineers • ${tsas.length} TSA${tsas.length===1?'':'s'}</span><small>${esc(hours)}${reason?` • ${esc(reason)}`:''}</small></label>`;
+    }).join('');
+
+    const published=CB.publishedPlan(state,scheduleDateKey);
+    const publishedStale=published?CB.isPlanStale(state,scheduleDateKey,published):false;
+    const plan=coverageDraftPlan || published;
+    const status=$('coverageBuilderStatus');
+    if(coverageDraftPlan){status.className='badge warning';status.textContent='Preview ready';}
+    else if(published){status.className=`badge ${publishedStale?'warning':'success'}`;status.textContent=publishedStale?'Published • needs refresh':'Published';}
+    else{status.className='badge neutral';status.textContent='Not generated';}
+    $('coveragePublishBtn').disabled=!coverageDraftPlan;
+    $('coverageClearBtn').disabled=!published;
+
+    if(!plan){
+      $('coverageBuilderHealth').innerHTML='';
+      $('coverageBuilderSummary').innerHTML='<div class="coverage-empty"><strong>Select shifts and generate a plan.</strong><span>The selected calendar date controls which shifts are available.</span></div>';
+      $('coverageBuilderWindows').innerHTML='';$('coverageBuilderHandoffs').innerHTML='';return;
+    }
+    const health=CB.health(state,plan);
+    const issues=health.issues.length?health.issues.join(' • '):'All 38 sites are covered in every staffed window.';
+    const tsaWarnings=health.warnings.filter(x=>x.includes('TSA'));
+    $('coverageBuilderHealth').innerHTML=[
+      `<div class="health-item ${health.issues.length?'bad':'good'}"><strong>Site coverage</strong><small>${esc(issues)}</small></div>`,
+      `<div class="health-item ${tsaWarnings.length?'warn':'good'}"><strong>TSA coverage</strong><small>${esc(tsaWarnings.join(' • ')||'TSA coverage is available for each active engineer window.')}</small></div>`,
+      `<div class="health-item ${publishedStale&&!coverageDraftPlan?'warn':'good'}"><strong>Plan state</strong><small>${coverageDraftPlan?'Preview only — publish when ready.':publishedStale?'Shift schedule changed after publication. Generate and republish.':'Published plan matches the current shift schedule.'}</small></div>`
+    ].join('');
+    const shiftNames=(plan.selectedShiftIds||[]).map(id=>S.shiftDefinition(state,id)?.name||id);
+    $('coverageBuilderSummary').innerHTML=`<div class="coverage-builder-meta"><strong>${esc(SV.formatDateLabel(scheduleDateKey))}</strong><span>${esc(shiftNames.join(' + ')||'No shifts')}</span><span>${plan.windows.length} generated coverage window${plan.windows.length===1?'':'s'}</span></div>`;
+    $('coverageBuilderWindows').innerHTML=(plan.windows||[]).map(w=>{
+      const shiftLoads=CB.shiftLoadSummary(state,w);
+      const loadPills=shiftLoads.map(x=>`<span class="coverage-load-pill"><strong>${esc(x.name)}</strong> ${Math.round(x.pct*100)}% • ${x.tickets} tickets • ${x.engineers} eng</span>`).join('');
+      const people=w.activeEngineers.map(id=>{const p=S.staffById(state,id),sites=w.personSites?.[id]||[],load=w.personLoads?.[id]||0;return `<span class="plan-person-pill">${esc(p?.name||id)} • ${sites.length} sites / ${load}</span>`;}).join('');
+      const tsaCount=w.activeAdmins?.length||0;
+      return `<div class="plan-window"><div class="plan-window-top"><strong>${esc(S.formatTime(S.minutesToTime(w.start)))}–${esc(S.formatTime(S.minutesToTime(w.end)))}</strong><span class="badge neutral">${w.activeEngineers.length} engineers • ${tsaCount} TSA${tsaCount===1?'':'s'}</span></div><div class="coverage-load-row">${loadPills||'<span class="badge danger">No active engineers</span>'}</div><div class="plan-window-people">${people||'<span class="badge danger">Coverage gap</span>'}</div></div>`;
+    }).join('');
+    const handoffs=CB.handoffs(state,plan);
+    $('coverageBuilderHandoffs').innerHTML=handoffs.length?handoffs.map(h=>{
+      const siteLines=h.siteGroups.slice(0,10).map(g=>`${coverageStaffName(g.from)} → ${coverageStaffName(g.to)}: ${g.sites.join(', ')}`).join('<br>');
+      const tsaLines=h.tsaChanges.slice(0,8).map(x=>`${coverageStaffName(x.engineerId)} TSA: ${coverageStaffName(x.from)} → ${coverageStaffName(x.to)}`).join('<br>');
+      return `<div class="handoff-card"><h4>${esc(S.formatTime(S.minutesToTime(h.at)))}</h4>${siteLines?`<p><strong>Sites</strong><br>${siteLines}</p>`:''}${tsaLines?`<p><strong>TSA</strong><br>${tsaLines}</p>`:''}</div>`;
+    }).join(''):'<div class="diagnostic good"><h3>No handoffs</h3><p>The selected coverage remains with the same owners for the entire plan.</p></div>';
   }
 
   function renderSchedule() {
@@ -333,6 +405,10 @@
   }
 
   function renderDailyPlan() {
+    const panel = $('legacyDailyPlanPanel');
+    const legacyActive = S.shiftActiveOnDate(state, 'weekend-day', scheduleDateKey) || S.shiftActiveOnDate(state, 'weekend-mid', scheduleDateKey);
+    if (panel) panel.hidden = !legacyActive;
+    if (!legacyActive) return;
     const candidate = DP.generatePlan(state, scheduleDateKey);
     const applied = DP.appliedPlan(state, scheduleDateKey);
     const stale = applied ? DP.isPlanStale(state, scheduleDateKey, applied) : true;
@@ -420,6 +496,7 @@
     renderScenario();
     renderSummary();
     renderShiftSetup();
+    renderCoverageBuilder();
     renderSchedule();
     renderDailyPlan();
     renderNotes();
@@ -536,36 +613,79 @@ document.querySelectorAll('[data-schedule-reset]').forEach(btn => btn.addEventLi
     document.querySelectorAll('[data-shift-default-save]').forEach(btn => btn.addEventListener('click', () => {
       const shiftId = btn.dataset.shiftDefaultSave;
       const editor = document.querySelector(`[data-shift-editor="${shiftId}"]`);
+      const card = btn.closest('.shift-setup-card');
       const start = editor?.querySelector('[data-shift-default-start]')?.value;
       const end = editor?.querySelector('[data-shift-default-end]')?.value;
+      const days = [...(card?.querySelectorAll('[data-shift-day]:checked') || [])].map(input=>Number(input.dataset.shiftDay));
       if (!start || !end || !S.intervalFromTimes(start, end)) { toast('Enter valid default hours; overnight shifts are allowed'); return; }
       const def = S.shiftDefinition(state, shiftId);
-      setState(S.setShiftDefault(state, shiftId, start, end), `${def?.name || shiftId} default set to ${S.formatTime(start)}–${S.formatTime(end)}`);
-    }));
-    document.querySelectorAll('[data-shift-default-clear]').forEach(btn => btn.addEventListener('click', () => {
-      const shiftId = btn.dataset.shiftDefaultClear;
-      const def = S.shiftDefinition(state, shiftId);
-      setState(S.clearShiftDefault(state, shiftId), `${def?.name || shiftId} default hours cleared`);
+      const dayNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      setState(S.setShiftSchedule(state, shiftId, start, end, days), `${def?.name || shiftId} schedule saved • ${S.formatTime(start)}–${S.formatTime(end)} • ${days.map(d=>dayNames[d]).join(', ')||'no active days'}`);
     }));
 
     wireScheduleEvents();
+    wireCoverageChoiceEvents();
+  }
+
+  $('coverageUseSuggestedBtn').addEventListener('click', () => {
+    coverageSelectedShiftIds = suggestedCoverageShifts(); coverageDraftPlan = null; renderCoverageBuilder(); wireCoverageChoiceEvents();
+  });
+  $('coverageGenerateBtn').addEventListener('click', () => {
+    ensureCoverageSelection(false);
+    if (!coverageSelectedShiftIds.length) { toast('Select at least one active shift with engineers'); return; }
+    coverageDraftPlan = CB.generatePlan(state, scheduleDateKey, coverageSelectedShiftIds);
+    renderCoverageBuilder(); wireCoverageChoiceEvents();
+    const health=CB.health(state,coverageDraftPlan);
+    toast(health.ok ? 'Coverage preview generated' : `Coverage preview generated with ${health.issues.length} issue${health.issues.length===1?'':'s'}`);
+  });
+  $('coveragePublishBtn').addEventListener('click', () => {
+    if (!coverageDraftPlan) return;
+    const health=CB.health(state,coverageDraftPlan);
+    if (!health.ok && !confirm(`This coverage plan has ${health.issues.length} issue${health.issues.length===1?'':'s'}. Publish it anyway?`)) return;
+    const next = CB.publishPlan(state,scheduleDateKey,coverageDraftPlan);
+    if (scenarioMode) {
+      const scenarioNext = next;
+      state = committedState;
+      scenarioMode = false;
+      setState(scenarioNext, `Scenario and multi-shift coverage published for ${SV.formatDateLabel(scheduleDateKey)}`);
+    } else {
+      setState(next, `Multi-shift coverage published for ${SV.formatDateLabel(scheduleDateKey)}`);
+    }
+  });
+  $('coverageClearBtn').addEventListener('click', () => {
+    if (!CB.publishedPlan(state,scheduleDateKey)) return;
+    if (!confirm(`Clear the published multi-shift coverage plan for ${SV.formatDateLabel(scheduleDateKey)}?`)) return;
+    setState(CB.clearPublishedPlan(state,scheduleDateKey), `Published multi-shift coverage cleared for ${SV.formatDateLabel(scheduleDateKey)}`);
+  });
+
+  function wireCoverageChoiceEvents() {
+    document.querySelectorAll('[data-coverage-shift]').forEach(input=>input.addEventListener('change',()=>{
+      const id=input.dataset.coverageShift;
+      if(input.checked&&!coverageSelectedShiftIds.includes(id))coverageSelectedShiftIds.push(id);
+      if(!input.checked)coverageSelectedShiftIds=coverageSelectedShiftIds.filter(x=>x!==id);
+      coverageDraftPlan=null; renderCoverageBuilder(); wireCoverageChoiceEvents();
+    }));
   }
 
   $('scheduleDate').addEventListener('change', e => {
     if (!S.isDateKey(e.target.value)) return;
     scheduleDateKey = e.target.value;
+    coverageDraftPlan = null; coverageSelectedShiftIds = []; ensureCoverageSelection(true);
     render();
   });
   $('schedulePrevDay').addEventListener('click', () => {
     scheduleDateKey = SV.addDays(scheduleDateKey, -1);
+    coverageDraftPlan = null; coverageSelectedShiftIds = []; ensureCoverageSelection(true);
     render();
   });
   $('scheduleNextDay').addEventListener('click', () => {
     scheduleDateKey = SV.addDays(scheduleDateKey, 1);
+    coverageDraftPlan = null; coverageSelectedShiftIds = []; ensureCoverageSelection(true);
     render();
   });
   $('scheduleToday').addEventListener('click', () => {
     scheduleDateKey = SV.todayKey();
+    coverageDraftPlan = null; coverageSelectedShiftIds = []; ensureCoverageSelection(true);
     render();
   });
   $('scheduleResetDay').addEventListener('click', () => {

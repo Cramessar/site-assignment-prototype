@@ -14,8 +14,54 @@
   function staffById(state, personId) { return allStaff(state).find(p => p.id === personId) || null; }
   function shiftCatalog(state) { return Array.isArray(state?.shiftCatalog) ? state.shiftCatalog : []; }
   function shiftDefinition(state, shiftId) { return shiftCatalog(state).find(s => s.id === shiftId) || null; }
-  function operationalShiftId(person) { return person?.operationalShiftId || (person?.shift === 'morning' ? 'weekend-day' : person?.shift === 'mid' ? 'weekend-mid' : 'unassigned'); }
+  function normalizedName(value){ return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
+  function firstToken(value){ return normalizedName(value).split(/\s+/)[0] || ''; }
+  function managerShiftId(state, managerName) {
+    const token = firstToken(managerName);
+    if (!token) return null;
+    const aliases = { matt: 'matthew', femi: 'oluwafemi', chaitu: 'chaitanya' };
+    const candidates = new Set([token, aliases[token] || token]);
+    const tokenMatch = value => {
+      const first = firstToken(value);
+      const normalized = normalizedName(value);
+      return [...candidates].some(candidate => first === candidate || first.startsWith(candidate) || candidate.startsWith(first) || normalized.includes(candidate));
+    };
+    const byCatalog = shiftCatalog(state).find(def => tokenMatch(def.supervisorName));
+    if (byCatalog) return byCatalog.id;
+    const byStaff = allStaff(state).find(person => tokenMatch(person.fullName || person.name));
+    return byStaff ? operationalShiftId(state, byStaff) : null;
+  }
+  function operationalShiftId(state, person) {
+    if (person && !state && typeof state === 'object') { /* noop legacy guard */ }
+    if (!person && state && state.id) { person = state; state = null; }
+    let shiftId = person?.operationalShiftId || (person?.shift === 'morning' ? 'weekend-day' : person?.shift === 'mid' ? 'weekend-mid' : 'unassigned');
+    if ((shiftId === 'unassigned' || !shiftId) && state && person?.manager) {
+      const inferred = managerShiftId(state, person.manager);
+      if (inferred) shiftId = inferred;
+    }
+    return shiftId || 'unassigned';
+  }
   function coverageGroup(person) { return person?.coverageGroup || person?.shift || null; }
+  function dateFromKey(dateKey) { const [y,m,d] = String(dateKey || '').split('-').map(Number); return !y || !m || !d ? null : new Date(y, m - 1, d, 12, 0, 0, 0); }
+  function shiftActiveOnDate(state, shiftId, dateKey) {
+    const d = dateFromKey(dateKey);
+    if (!d) return true;
+    const day = d.getDay();
+    const def = shiftDefinition(state, shiftId);
+    if (Array.isArray(def?.activeDays)) return def.activeDays.map(Number).includes(day);
+    if (shiftId === 'weekday-morning' || shiftId === 'weekday-mid') return [1,2,3,4].includes(day);
+    if (shiftId === 'weekday-night') return [1,2,3,4,5].includes(day);
+    if (shiftId === 'weekend-day' || shiftId === 'weekend-mid' || shiftId === 'weekend-night') return [5,6,0,1].includes(day);
+    return true;
+  }
+  function visibleShiftIds(state, dateKey) { return shiftCatalog(state).filter(def => shiftActiveOnDate(state, def.id, dateKey)).map(def => def.id); }
+  function isShiftSupervisor(state, person) {
+    const shiftId = operationalShiftId(state, person);
+    const def = shiftDefinition(state, shiftId);
+    if (!def) return false;
+    const personName = normalizedName(person?.fullName || person?.name);
+    return Boolean((def.supervisorId && def.supervisorId === person?.id) || (def.supervisorName && normalizedName(def.supervisorName) === personName));
+  }
 
   function scheduleRules(state) {
     const configured = state?.rules?.scheduleDefaults || {};
@@ -67,7 +113,7 @@
   function defaultShiftForPerson(state, personId) {
     const person = staffById(state, personId);
     if (!person) return null;
-    const def = shiftDefinition(state, operationalShiftId(person));
+    const def = shiftDefinition(state, operationalShiftId(state, person));
     let start = def?.defaultStart || null, end = def?.defaultEnd || null;
     if ((!start || !end) && !def && (person.shift === 'morning' || person.shift === 'mid')) {
       const legacy = scheduleRules(state)[person.shift]; start = legacy.start; end = legacy.end;
@@ -84,8 +130,10 @@
     const person = staffById(state, personId);
     if (!person) return null;
     if (person.vacation) return { start:null,end:null,off:true,vacation:true,coverageStatus:'vacation',source:'vacation',durationMinutes:0,unconfigured:false };
+    const shiftId = operationalShiftId(state, person);
     const base = defaultShiftForPerson(state, personId);
     const override = rawOverride(state, personId, dateKey);
+    if (isDateKey(dateKey) && !shiftActiveOnDate(state, shiftId, dateKey) && !override) return { ...base, start:null, end:null, off:true, vacation:false, inactiveShift:true, coverageStatus:'off', source:'inactive-shift', durationMinutes:0, unconfigured:false };
     if (!override) return base;
     if (override.off) return { ...base, ...override, start:null,end:null,off:true,vacation:false,coverageStatus:override.coverageStatus || 'off',source:'override',durationMinutes:0,unconfigured:false };
     const start = override.start || base.start, end = override.end || base.end;
@@ -129,6 +177,16 @@
   function clearShiftDefault(state, shiftId) {
     const next=clone(state), def=shiftDefinition(next,shiftId); if(!def)return next; def.defaultStart=null;def.defaultEnd=null; return next;
   }
+  function setShiftDays(state, shiftId, activeDays) {
+    const next=clone(state), def=shiftDefinition(next,shiftId); if(!def)return next;
+    const clean=[...new Set((activeDays||[]).map(Number).filter(day=>Number.isInteger(day)&&day>=0&&day<=6))].sort((a,b)=>a-b);
+    def.activeDays=clean; return next;
+  }
+  function setShiftSchedule(state, shiftId, start, end, activeDays) {
+    let next=setShiftDefault(state,shiftId,start,end);
+    next=setShiftDays(next,shiftId,activeDays);
+    return next;
+  }
 
   function intervalForShift(shift){if(!shift||shift.off||shift.vacation||shift.unconfigured)return null;return intervalFromTimes(shift.start,shift.end);}
   function intervalForCoverage(shift){if(!shift||shift.off||shift.vacation||(shift.coverageStatus||'working')!=='working')return null;return intervalForShift(shift);}
@@ -148,11 +206,13 @@
     const activeRows=rows.filter(r=>intervalForShift(r.shift));
     const morningRows=activeRows.filter(r=>coverageGroup(r.person)==='morning'),midRows=activeRows.filter(r=>coverageGroup(r.person)==='mid');
     const overlapSegments=crossTeamOverlapSegments(state,dateKey),mergedOverlap=mergeSegments(overlapSegments);
-    const shiftStats={}; shiftCatalog(state).forEach(def=>{const all=rows.filter(r=>operationalShiftId(r.person)===def.id), active=all.filter(r=>intervalForShift(r.shift)); shiftStats[def.id]={def,total:all.length,activeCount:active.length,hours:active.reduce((s,r)=>s+r.shift.durationMinutes,0)/60,unconfigured:all.filter(r=>r.shift?.unconfigured).length};});
+    const visible = new Set(visibleShiftIds(state, dateKey));
+    const visibleRows = rows.filter(r => visible.has(operationalShiftId(state, r.person)));
+    const shiftStats={}; shiftCatalog(state).filter(def => visible.has(def.id)).forEach(def=>{const all=visibleRows.filter(r=>operationalShiftId(state, r.person)===def.id), active=all.filter(r=>intervalForShift(r.shift)); shiftStats[def.id]={def,total:all.length,activeCount:active.length,hours:active.reduce((s,r)=>s+r.shift.durationMinutes,0)/60,unconfigured:all.filter(r=>r.shift?.unconfigured).length};});
     return {rows,activeCount:activeRows.length,morningCount:morningRows.length,midCount:midRows.length,morningHours:morningRows.reduce((s,r)=>s+r.shift.durationMinutes,0)/60,midHours:midRows.reduce((s,r)=>s+r.shift.durationMinutes,0)/60,exceptions:rows.filter(r=>rawOverride(state,r.person.id,dateKey)).length,overlapSegments,mergedOverlap,overlapMinutes:mergedOverlap.reduce((s,x)=>s+x.end-x.start,0),shiftStats,totalHours:activeRows.reduce((s,r)=>s+r.shift.durationMinutes,0)/60,unconfiguredCount:rows.filter(r=>r.shift?.unconfigured).length};
   }
 
   function barPosition(state,shift){const interval=intervalForShift(shift);if(!interval)return null;const t=timelineRules(state),ts=timeToMinutes(t.start),te=timeToMinutes(t.end),span=Math.max(1,te-ts),cs=Math.max(ts,Math.min(te,interval.start)),ce=Math.max(ts,Math.min(te,interval.end));return{leftPct:((cs-ts)/span)*100,widthPct:Math.max(0,((ce-cs)/span)*100),clippedBefore:interval.start<ts,clippedAfter:interval.end>te};}
 
-  return {clone,allStaff,staffById,shiftCatalog,shiftDefinition,operationalShiftId,coverageGroup,scheduleRules,timelineRules,isDateKey,timeToMinutes,minutesToTime,formatTime,formatDuration,intervalFromTimes,defaultShiftForPerson,rawOverride,getShift,setShift,setOff,setCoverageStatus,clearOverride,clearDay,setShiftDefault,clearShiftDefault,intervalForShift,intervalForCoverage,overlapMinutes,overlapsForPerson,coverageSegments,crossTeamOverlapSegments,mergeSegments,dayStats,barPosition};
+  return {clone,allStaff,staffById,shiftCatalog,shiftDefinition,managerShiftId,operationalShiftId,coverageGroup,scheduleRules,timelineRules,isDateKey,timeToMinutes,minutesToTime,formatTime,formatDuration,intervalFromTimes,defaultShiftForPerson,rawOverride,getShift,setShift,setOff,setCoverageStatus,clearOverride,clearDay,setShiftDefault,clearShiftDefault,setShiftDays,setShiftSchedule,intervalForShift,intervalForCoverage,overlapMinutes,overlapsForPerson,coverageSegments,crossTeamOverlapSegments,mergeSegments,shiftActiveOnDate,visibleShiftIds,isShiftSupervisor,dayStats,barPosition};
 });

@@ -1,98 +1,93 @@
-# Site Coverage Manager — Prototype v7
+# Site Coverage Manager — Prototype v9
 
-A browser-based prototype for site assignment, TSA support, multi-shift staffing calendars, supervisors, and date-aware daily coverage planning.
+A browser-based operations prototype for multi-shift staffing, site assignment, TSA support, daily scheduling, and workload-balanced handoffs.
 
 ## Run it
 
 Open `index.html` directly, or serve the folder locally:
 
 ```powershell
-cd path\to\site-assignment-prototype-v7
+cd path\to\site-assignment-prototype-v9
 python -m http.server 8080
 ```
 
 Then open `http://localhost:8080`.
 
-- `index.html` — clean, read-only team view
+- `index.html` — read-only team view
 - `manage.html` — supervisor / manager console
 
 No packages or database are required. Prototype state is stored in browser localStorage.
 
-## v7 additions
+## v9 additions
 
-### Full operational roster
-The staffing calendar now contains the supplied 53-person roster plus three people retained from the working prototype because they were not present in the latest roster table: Youssef, Bryan, and Ola.
+### Configurable shift schedules
+Every operational shift now has editable default hours **and active days**.
 
-The current Weekend coverage identities were reconciled to the roster where possible, including:
+Seeded defaults:
 
-- Ryan Jackson — Weekend Day TSA
-- Ryan Mine — separate Weekday Mid Sr TSE
-- Garret Bishop — Weekend Mid TCE
-- Chad Cruz Jr., Bronson Wong, Carolyn Shin, David Lewis, Joshua Benson, Cameron McCreery, and Krysztof Capuras
+- Weekday Morning — 6:00 AM–4:00 PM, Monday–Thursday
+- Weekday Mid — 12:00 PM–8:00 PM, Monday–Thursday
+- Weekday Night — 8:00 PM–6:00 AM, Monday–Friday
+- Weekend Day — 6:00 AM–4:00 PM, Friday–Monday
+- Weekend Mid — 12:00 PM–8:00 PM, Friday–Monday
+- Weekend Night — 8:00 PM–6:00 AM, Friday–Monday
+- Commissioning — 9:00 AM–5:00 PM, Monday–Friday
+- Leadership — 9:00 AM–5:00 PM, Monday–Friday
 
-### Named shifts and supervisors
-The organization layer now includes:
+A supervisor can change both time and days from **Shift Setup & Supervisors**. Changes immediately affect calendar visibility and Coverage Builder eligibility.
 
-- Weekday Morning — Matthew Weimer (TSS)
-- Weekday Mid — Chaitanya Jagarapu (TSS)
-- Weekday Night — Oluwafemi Okediran (TSS)
-- Weekend Day — Christopher (derived from the roster Manager column)
-- Weekend Mid — Stephen Parker (TSS)
-- Weekend Night — Guillermo Rodriguez (TSS)
-- Commissioning — Michael Westfield (Manager)
-- Leader — Brian shown as the leadership supervisor because Tony Rodriguez and Michael Westfield both list Brian as manager
-- Unassigned — Andrea Capuras remains here because no shift was supplied
+Individual date-specific schedule exceptions still work, including scheduling someone on a day their shift is normally inactive.
 
-The original Manager value is also preserved per person, even when it differs from the shift supervisor.
+### Supervisor-based shift inheritance
+Andrea Capuras still has no explicit shift in the supplied roster, but because she reports to Guillermo Rodriguez she inherits the Weekend Night operational shift and its schedule.
 
-### Shift Setup
-The supervisor console has a Shift Setup section. Default start/end times can be configured for each operational shift without editing code.
+### Multi-shift Coverage Builder
+The supervisor console now has an on-demand Coverage Builder.
 
-Known defaults are seeded only where previously established:
+For the selected calendar date, a supervisor can:
 
-- Weekend Day: 6:00 AM–4:00 PM
-- Weekend Mid: 12:00 PM–8:00 PM
+1. select one or more active operational shifts
+2. generate a preview
+3. review site coverage, TSA coverage, workload distribution, and handoffs
+4. publish that coverage plan to the team-facing page
 
-Other shifts intentionally begin with **Hours not configured** rather than guessed schedules.
+The builder supports Weekday, Weekend, Mid, Night, and Commissioning teams without maintaining separate assignment engines for each one.
 
-### Overnight shifts
-Shift defaults and individual daily exceptions support crossing midnight. For example, `8:00 PM → 6:00 AM` is treated as a 10-hour shift.
+### How generic site balancing works
+- Only TCE/TSE staff receive site ownership.
+- Shift supervisors and managers are excluded from site assignment.
+- TSAs are assigned as the support layer whenever they are scheduled in the selected coverage window.
+- Sites are weighted using the existing 30-day ticket volume.
+- Existing assignment locks are honored whenever the locked engineer is active in the selected shifts.
+- Weekend Day + Weekend Mid retains the approved ~60/40 ticket-workload rule during overlap.
+- Other shift combinations use active engineer headcount to establish shift-level workload share, which keeps per-person workload approximately equitable.
+- Selected shifts generate automatic time windows and handoffs from their actual start/end times.
+- Overnight shifts are supported.
 
-### Team-facing organization view
-Employees can now:
+Example: selecting Weekend Mid (12 PM–8 PM) and Weekend Night (8 PM–6 AM) creates an automatic 8 PM handoff of the 38-site pool.
 
-- select anyone in the full roster
-- see their operational shift
-- see their listed manager
-- see their shift supervisor
-- see configured default hours and date-specific exceptions
-- see a Shift Supervisors directory
+### Published team coverage
+A published multi-shift plan is date-specific. The team-facing page prefers that published plan and shows each participating engineer their site ownership and TSA by time window. TSAs see the engineers they are supporting in each window.
 
-People whose shifts do not yet participate in the 38-site assignment engine still get a useful roster/schedule profile instead of a fake site assignment.
+## Existing functionality retained
 
-## Existing v6 functionality retained
-
-- 38 workbook sites and 1,926-ticket workload model
-- Weekend Day full coverage and Weekend Mid takeover model
-- approximately 60/40 workload split during the current 12–4 overlap
-- vacation-based rebalance
-- configurable site locks, including BRK → Carolyn
-- TSA support and fallback for the current coverage teams
-- date-aware Daily Plans
+- 38 sites and 1,926-ticket workload model
+- vacation-driven rebalancing for the original Weekend coverage team
+- Weekend Day / Weekend Mid baseline assignment board
+- configurable BRK → Carolyn assignment lock
+- TSA support assignments and fallback logic
+- daily staffing calendar
+- half days, extended shifts, days off, training, meetings, and unavailable status
+- date-aware Weekend Daily Plan
+- scenario mode
 - preview/apply workflow
-- Coverage Health
-- dynamic handoffs
-- Scenario Mode
-- Undo and recent change history
-- daily notes and availability statuses
-- historical fairness tracking
-- read-only team assignment page
-
-## Important current boundary
-
-The new shifts are now part of the **staffing and organizational calendar**, but the 38 existing sites are still intentionally assigned only through the validated Weekend Day / Weekend Mid coverage engine. We have not invented site ownership, workload targets, or TSA rules for the newly added shifts.
-
-That gives us a safe next step: define which site pool each additional shift participates in, its handoff relationship, and its workload target before connecting it to automatic Daily Plan assignment.
+- coverage health
+- handoffs
+- undo/change history
+- daily notes
+- fairness history
+- full 57-person prototype roster including Christopher Ramessar and retained Youssef/Bryan/Ola
+- supervisor-highlighted calendar rows
 
 ## Tests
 
@@ -102,4 +97,4 @@ Run:
 node tests.js
 ```
 
-The v7 tests cover the original assignment/TSA/Daily Plan behavior plus full-roster loading, shift-supervisor mapping, unconfigured default hours, shift-default editing, identity separation for the two Ryans, and overnight shifts.
+The v9 suite covers the original assignment/TSA/Daily Plan logic plus configurable active days, off-day schedule exceptions, supervisor-inherited shifts, Weekday coverage generation, Weekend 60/40 generation, Mid-to-Night handoffs, TSA participation, supervisor exclusion from site assignment, plan publication, and overnight schedules.
