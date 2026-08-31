@@ -311,3 +311,11 @@
 @media (max-width: 450px) {
   .team-directory { grid-template-columns: 1fr; }
 }
+.daily-live-plan { border-color:#cbd9ee; background:#fbfdff; }
+.daily-window-row { border-top:1px solid #e7ebf1; padding:12px 0; display:grid; gap:8px; }
+.daily-window-row:first-of-type { border-top:0; }
+.daily-window-row small { display:block; color:#718096; margin-top:3px; }
+.daily-window-sites { display:flex; gap:5px; flex-wrap:wrap; }
+.daily-window-sites span { background:#eef3fb; border-radius:6px; padding:4px 6px; font-size:10px; font-weight:750; color:#39577f; }
+.team-note { background:#fffdf7; border-color:#eadcae; }
+.team-note p { margin:5px 0 0; color:#6a5b2b; }

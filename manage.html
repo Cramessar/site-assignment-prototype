@@ -16,7 +16,9 @@
     </div>
     <div class="header-actions">
       <a href="index.html" class="button secondary" style="text-decoration:none">Team view</a>
-      <button id="rebalanceBtn" class="button secondary strong">Rebalance all</button>
+      <button id="scenarioBtn" class="button secondary">Scenario mode</button>
+      <button id="undoBtn" class="button secondary">Undo</button>
+      <button id="rebalanceBtn" class="button secondary strong">Rebalance baseline</button>
       <button id="exportBtn" class="button secondary">Export snapshot</button>
       <button id="resetBtn" class="button danger-ghost">Reset & rebalance</button>
     </div>
@@ -51,6 +53,64 @@
       </div>
       <div id="scheduleSummary" class="schedule-summary"></div>
       <div id="scheduleBoard" class="schedule-board"></div>
+    </section>
+
+
+    <section class="panel daily-plan-panel" aria-label="Daily generated coverage plan">
+      <div class="panel-heading">
+        <div>
+          <div class="eyebrow">Date-aware coverage</div>
+          <h2>Daily Plan</h2>
+          <p>Generated from the actual staffing calendar. Review changes, coverage health, and handoffs before publishing the plan to the team.</p>
+        </div>
+        <div class="daily-plan-actions">
+          <span id="planStatus" class="badge neutral">Draft</span>
+          <button id="applyPlanBtn" class="button primary" type="button">Apply daily plan</button>
+        </div>
+      </div>
+      <div id="coverageHealth" class="health-grid"></div>
+      <div id="planPreview" class="plan-preview"></div>
+      <div class="daily-plan-columns">
+        <div>
+          <div class="subsection-heading compact"><div><h3>Coverage windows</h3><p>Windows are created automatically from real start/end times.</p></div></div>
+          <div id="dailyPlanWindows"></div>
+        </div>
+        <div>
+          <div class="subsection-heading compact"><div><h3>Handoffs</h3><p>Site and TSA transitions at each staffing boundary.</p></div></div>
+          <div id="dailyHandoffs"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-heading">
+        <div><div class="eyebrow">Supervisor context</div><h2>Daily notes & exceptions</h2><p>Add context the assignment engine cannot infer from a clock.</p></div>
+      </div>
+      <div class="notes-grid">
+        <label class="notes-field"><span>Team note for this date</span><textarea id="dailyGeneralNote" rows="4" placeholder="Training, maintenance windows, escalation ownership, unusual coverage notes…"></textarea></label>
+        <div class="person-note-editor">
+          <label><span>Person</span><select id="personNoteSelect"></select></label>
+          <label><span>Person-specific note</span><textarea id="personNoteText" rows="3" placeholder="Example: client call 1–2pm"></textarea></label>
+          <button id="saveNotesBtn" class="button primary small" type="button">Save notes</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-heading">
+        <div><div class="eyebrow">Rules</div><h2>Assignment locks</h2><p>Locked sites stay with the selected engineer whenever that engineer is actually available.</p></div>
+      </div>
+      <div class="lock-editor"><select id="lockSiteSelect"></select><select id="lockPersonSelect"></select><button id="addLockBtn" class="button primary small" type="button">Add / replace lock</button></div>
+      <div id="assignmentLocks" class="lock-list"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-heading">
+        <div><div class="eyebrow">Fairness over time</div><h2>Assigned workload history</h2><p>Tracks ticket-weighted coverage hours from applied daily plans. It is a planning proxy, not actual ticket production.</p></div>
+      </div>
+      <div id="fairnessHistory" class="fairness-history"></div>
+      <div class="subsection-heading compact"><div><h3>Recent changes</h3><p>Latest supervisor actions in this browser.</p></div></div>
+      <div id="changeHistory" class="change-history"></div>
     </section>
 
     <section class="panel diagnostic-panel">
@@ -174,6 +234,7 @@
   <script src="logic.js"></script>
   <script src="schedule.js"></script>
   <script src="schedule-view.js"></script>
+  <script src="daily-plan.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

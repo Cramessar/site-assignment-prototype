@@ -3,8 +3,12 @@
   const L = SiteCoverageLogic;
   const S = SiteScheduleLogic;
   const SV = SiteScheduleView;
+  const DP = DailyPlanLogic;
   const STORAGE_KEY = 'site-coverage-manager-v3';
-  let state = loadState();
+  let state = DP.normalizeState(loadState());
+  let committedState = DP.clone(state);
+  let scenarioMode = false;
+  let undoStack = [];
   let searchTerm = '';
   let scheduleDateKey = SV.todayKey();
 
@@ -29,16 +33,29 @@
       if (!raw) return freshBalancedState();
       const parsed = JSON.parse(raw);
       if (!parsed || parsed.version !== SEED.version) return freshBalancedState();
-      return parsed;
+      return DP.normalizeState(parsed);
     } catch { return freshBalancedState(); }
   }
 
   function saveState() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(committedState));
   }
 
   function setState(next, message) {
+    next = DP.normalizeState(next);
+    if (scenarioMode) {
+      state = next;
+      render();
+      if (message) toast(`Scenario • ${message}`);
+      return;
+    }
+    undoStack.push(DP.clone(state));
+    if (undoStack.length > 20) undoStack.shift();
+    const history = (next.changeHistory || []).slice(-19);
+    if (message) history.push({ at: new Date().toISOString(), message });
+    next.changeHistory = history;
     state = next;
+    committedState = DP.clone(next);
     saveState();
     render();
     if (message) toast(message);
@@ -286,9 +303,102 @@
     $('scheduleBoard').innerHTML = SV.boardHTML(state, scheduleDateKey, { editable: true });
   }
 
+  function staffName(id) {
+    return S.staffById(state, id)?.name || id || 'Uncovered';
+  }
+
+  function renderDailyPlan() {
+    const candidate = DP.generatePlan(state, scheduleDateKey);
+    const applied = DP.appliedPlan(state, scheduleDateKey);
+    const stale = applied ? DP.isPlanStale(state, scheduleDateKey, applied) : true;
+    const health = DP.coverageHealth(state, candidate);
+    const diff = DP.planDiff(state, applied, candidate);
+    const status = $('planStatus');
+    status.className = `badge ${scenarioMode || stale ? 'warning' : 'success'}`;
+    status.textContent = scenarioMode ? 'Scenario preview' : applied ? (stale ? 'Changes pending' : 'Applied') : 'Not applied';
+    $('applyPlanBtn').textContent = scenarioMode ? 'Apply scenario & plan' : applied && !stale ? 'Re-apply daily plan' : 'Apply daily plan';
+
+    const healthItems = [
+      { title: 'Site coverage', tone: health.issues.length ? 'bad' : 'good', text: health.issues.length ? health.issues.join(' • ') : 'Every generated time window has full site coverage.' },
+      { title: 'TSA coverage', tone: health.issues.some(x=>x.includes('no TSA')) ? 'bad' : 'good', text: health.issues.filter(x=>x.includes('no TSA')).join(' • ') || 'Every working engineer has a TSA when a TSA is scheduled.' },
+      { title: 'Workload split', tone: health.warnings.some(x=>x.includes('workload split')) ? 'warn' : 'good', text: health.warnings.filter(x=>x.includes('workload split')).join(' • ') || 'Overlap windows are within the 60/40 workload target tolerance.' },
+      { title: 'Assignment locks', tone: health.issues.some(x=>x.includes('lock')) ? 'bad' : 'good', text: health.issues.filter(x=>x.includes('lock')).join(' • ') || `${DP.assignmentLocks(state).length} lock${DP.assignmentLocks(state).length===1?'':'s'} honored when the owner is available.` }
+    ];
+    $('coverageHealth').innerHTML = healthItems.map(x=>`<div class="health-item ${x.tone}"><strong>${esc(x.title)}</strong><small>${esc(x.text)}</small></div>`).join('');
+
+    const previewText = diff.firstPlan
+      ? `This is the first published daily plan for this date. ${candidate.windows.length} coverage windows will be created.`
+      : stale
+        ? `${diff.siteChanges} site-window assignment changes and ${diff.tsaChanges} TSA-window changes compared with the applied plan.`
+        : 'The applied plan already matches the current staffing calendar.';
+    $('planPreview').innerHTML = `<strong>${scenarioMode ? 'Scenario impact' : 'Rebalance preview'}</strong><p>${esc(previewText)}</p>${diff.details?.length ? `<p>${diff.details.map(d=>`${S.formatTime(S.minutesToTime(d.start))}–${S.formatTime(S.minutesToTime(d.end))}: ${d.sites} site changes, ${d.tsa} TSA changes`).join(' • ')}</p>` : ''}`;
+
+    $('dailyPlanWindows').innerHTML = candidate.windows.map(window => {
+      const split = DP.windowSplit(state, window);
+      const personPills = window.activeEngineers.map(id => {
+        const p = personById(id); const count = (window.personSites[id] || []).length;
+        const load = (window.personSites[id] || []).reduce((sum,siteId)=>sum+(siteById(siteId)?.tickets30||0),0);
+        return `<span class="plan-person-pill ${p?.shift==='mid'?'mid':''}">${esc(p?.name||id)} • ${count} sites / ${load}</span>`;
+      }).join('') || '<span class="badge danger">No engineers available</span>';
+      const splitLabel = window.activeMorning.length && window.activeMid.length ? `${pct(split.morningPct)} AM / ${pct(split.midPct)} MID` : window.activeMorning.length ? 'Morning owns full coverage' : window.activeMid.length ? 'Midday owns full coverage' : 'Uncovered';
+      return `<div class="plan-window"><div class="plan-window-top"><strong>${esc(S.formatTime(S.minutesToTime(window.start)))}–${esc(S.formatTime(S.minutesToTime(window.end)))}</strong><span class="badge neutral">${esc(splitLabel)}</span></div><div class="plan-window-people">${personPills}</div></div>`;
+    }).join('');
+
+    const handoffs = DP.handoffs(state, candidate);
+    $('dailyHandoffs').innerHTML = handoffs.length ? handoffs.map(h => {
+      const siteLines = h.siteGroups.slice(0,8).map(g => `${staffName(g.from)} → ${staffName(g.to)}: ${g.sites.join(', ')}`).join('<br>');
+      const tsaLines = h.tsaChanges.slice(0,8).map(x => `${staffName(x.engineerId)} TSA: ${staffName(x.from)} → ${staffName(x.to)}`).join('<br>');
+      return `<div class="handoff-card"><h4>${esc(S.formatTime(S.minutesToTime(h.at)))}</h4>${siteLines?`<p><strong>Sites</strong><br>${siteLines}</p>`:''}${tsaLines?`<p><strong>TSA</strong><br>${tsaLines}</p>`:''}</div>`;
+    }).join('') : '<div class="diagnostic good"><h3>No handoffs</h3><p>The same coverage owners remain throughout the generated windows.</p></div>';
+  }
+
+  function renderNotes() {
+    const notes = DP.notesForDate(state, scheduleDateKey);
+    $('dailyGeneralNote').value = notes.general || '';
+    const staff = S.allStaff(state).slice().sort((a,b)=>a.name.localeCompare(b.name));
+    const current = $('personNoteSelect').value;
+    $('personNoteSelect').innerHTML = staff.map(p=>`<option value="${esc(p.id)}">${esc(p.name)} • ${esc(roleShort(p.role))}</option>`).join('');
+    if (current && staff.some(p=>p.id===current)) $('personNoteSelect').value = current;
+    const selected = $('personNoteSelect').value || staff[0]?.id;
+    $('personNoteText').value = notes.people?.[selected] || '';
+  }
+
+  function renderLocks() {
+    const locks = DP.assignmentLocks(state);
+    $('lockSiteSelect').innerHTML = state.sites.map(s=>`<option value="${esc(s.id)}">${esc(s.id)} • ${s.tickets30} tickets</option>`).join('');
+    $('lockPersonSelect').innerHTML = state.people.filter(p=>p.shift==='morning').map(p=>`<option value="${esc(p.id)}">${esc(p.name)} • ${esc(roleShort(p.role))}</option>`).join('');
+    $('assignmentLocks').innerHTML = locks.length ? locks.map(lock=>`<span class="lock-item">${esc(lock.siteId)} → ${esc(personById(lock.personId)?.name||lock.personId)} <button type="button" data-remove-lock="${esc(lock.id)}" aria-label="Remove lock">×</button></span>`).join('') : '<span class="empty-sites">No assignment locks configured.</span>';
+  }
+
+  function renderFairness() {
+    const one = DP.fairnessSummary(state, scheduleDateKey, 1);
+    const seven = DP.fairnessSummary(state, scheduleDateKey, 7);
+    const thirty = DP.fairnessSummary(state, scheduleDateKey, 30);
+    const rows = state.people.map(p=>`<tr><td><strong>${esc(p.name)}</strong></td><td>${Math.round(one[p.id]?.weightedHours||0).toLocaleString()}</td><td>${Math.round(seven[p.id]?.weightedHours||0).toLocaleString()}</td><td>${Math.round(thirty[p.id]?.weightedHours||0).toLocaleString()}</td></tr>`).join('');
+    $('fairnessHistory').innerHTML = `<table class="fairness-table"><thead><tr><th>Engineer</th><th>Today</th><th>7 days</th><th>30 days</th></tr></thead><tbody>${rows}</tbody></table>`;
+    const hist = (state.changeHistory || []).slice().reverse().slice(0,8);
+    $('changeHistory').innerHTML = hist.length ? hist.map(x=>`<div class="handoff-card"><h4>${esc(new Date(x.at).toLocaleString())}</h4><p>${esc(x.message)}</p></div>`).join('') : '<span class="empty-sites">No recorded changes yet.</span>';
+  }
+
+  function renderScenario() {
+    $('scenarioBtn').textContent = scenarioMode ? 'Discard scenario' : 'Scenario mode';
+    $('undoBtn').disabled = scenarioMode || !undoStack.length;
+    let banner = document.getElementById('scenarioBanner');
+    if (scenarioMode && !banner) {
+      banner = document.createElement('div'); banner.id='scenarioBanner'; banner.className='scenario-banner';
+      banner.innerHTML = '<span>Scenario mode — changes are temporary until you apply the Daily Plan.</span>';
+      document.body.insertBefore(banner, document.body.firstChild);
+    } else if (!scenarioMode && banner) banner.remove();
+  }
+
   function render() {
+    renderScenario();
     renderSummary();
     renderSchedule();
+    renderDailyPlan();
+    renderNotes();
+    renderLocks();
+    renderFairness();
     renderDiagnostics();
     renderPools();
     renderTeams();
@@ -310,6 +420,12 @@ document.querySelectorAll('[data-schedule-start], [data-schedule-end]').forEach(
   }
   const person = S.staffById(state, personId);
   setState(S.setShift(state, personId, scheduleDateKey, start, end), `${person.name} • ${SV.formatDateLabel(scheduleDateKey)} updated to ${S.formatTime(start)}–${S.formatTime(end)}`);
+}));
+
+document.querySelectorAll('[data-schedule-status]').forEach(select => select.addEventListener('change', () => {
+  const personId = select.dataset.scheduleStatus;
+  const person = S.staffById(state, personId);
+  setState(S.setCoverageStatus(state, personId, scheduleDateKey, select.value), `${person.name} marked ${select.value} for ${SV.formatDateLabel(scheduleDateKey)}`);
 }));
 
 document.querySelectorAll('[data-schedule-off]').forEach(btn => btn.addEventListener('click', () => {
@@ -387,29 +503,29 @@ document.querySelectorAll('[data-schedule-reset]').forEach(btn => btn.addEventLi
       setState(L.removeEngineerFromTsa(state, admin.id, engineer.id), `${engineer.name} removed from ${admin.name} • TSA coverage needs review`);
     }));
 
+    document.querySelectorAll('[data-remove-lock]').forEach(btn => btn.addEventListener('click', () => {
+      setState(DP.removeLock(state, btn.dataset.removeLock), 'Assignment lock removed • baseline rebalanced');
+    }));
+
     wireScheduleEvents();
   }
 
   $('scheduleDate').addEventListener('change', e => {
     if (!S.isDateKey(e.target.value)) return;
     scheduleDateKey = e.target.value;
-    renderSchedule();
-    wireScheduleEvents();
+    render();
   });
   $('schedulePrevDay').addEventListener('click', () => {
     scheduleDateKey = SV.addDays(scheduleDateKey, -1);
-    renderSchedule();
-    wireScheduleEvents();
+    render();
   });
   $('scheduleNextDay').addEventListener('click', () => {
     scheduleDateKey = SV.addDays(scheduleDateKey, 1);
-    renderSchedule();
-    wireScheduleEvents();
+    render();
   });
   $('scheduleToday').addEventListener('click', () => {
     scheduleDateKey = SV.todayKey();
-    renderSchedule();
-    wireScheduleEvents();
+    render();
   });
   $('scheduleResetDay').addEventListener('click', () => {
     const stats = S.dayStats(state, scheduleDateKey);
@@ -418,16 +534,57 @@ document.querySelectorAll('[data-schedule-reset]').forEach(btn => btn.addEventLi
     setState(S.clearDay(state, scheduleDateKey), `Schedule reset to defaults for ${SV.formatDateLabel(scheduleDateKey)}`);
   });
 
+  $('applyPlanBtn').addEventListener('click', () => {
+    const candidate = DP.generatePlan(state, scheduleDateKey);
+    const health = DP.coverageHealth(state, candidate);
+    if (!health.ok && !confirm(`This plan has ${health.issues.length} coverage issue${health.issues.length===1?'':'s'}. Apply it anyway?`)) return;
+    let next = DP.withAppliedPlan(state, scheduleDateKey, candidate);
+    if (scenarioMode) {
+      const scenarioNext = next;
+      state = committedState;
+      scenarioMode = false;
+      setState(scenarioNext, `Scenario and Daily Plan applied for ${SV.formatDateLabel(scheduleDateKey)}`);
+    } else {
+      setState(next, `Daily Plan applied for ${SV.formatDateLabel(scheduleDateKey)}`);
+    }
+  });
+
+  $('scenarioBtn').addEventListener('click', () => {
+    if (scenarioMode) {
+      state = DP.clone(committedState); scenarioMode = false; render(); toast('Scenario discarded');
+    } else {
+      committedState = DP.clone(state); state = DP.clone(state); scenarioMode = true; render(); toast('Scenario mode started • changes are temporary');
+    }
+  });
+
+  $('undoBtn').addEventListener('click', () => {
+    if (!undoStack.length || scenarioMode) return;
+    const previous = undoStack.pop();
+    state = DP.normalizeState(previous); committedState = DP.clone(state); saveState(); render(); toast('Last change undone');
+  });
+
+  $('saveNotesBtn').addEventListener('click', () => {
+    let next = DP.setDailyNote(state, scheduleDateKey, $('dailyGeneralNote').value);
+    next = DP.setPersonNote(next, scheduleDateKey, $('personNoteSelect').value, $('personNoteText').value);
+    setState(next, `Notes saved for ${SV.formatDateLabel(scheduleDateKey)}`);
+  });
+  $('personNoteSelect').addEventListener('change', () => {
+    const notes = DP.notesForDate(state, scheduleDateKey); $('personNoteText').value = notes.people?.[$('personNoteSelect').value] || '';
+  });
+
+  $('addLockBtn').addEventListener('click', () => {
+    const siteId = $('lockSiteSelect').value, personId = $('lockPersonSelect').value;
+    if (!siteId || !personId) return;
+    setState(DP.addLock(state, personId, siteId), `${siteId} locked to ${personById(personId)?.name || personId} • baseline rebalanced`);
+  });
+
   $('rebalanceBtn').addEventListener('click', () => {
     setState(L.rebalanceAssignments(state), 'Site workload and TSA support rebalanced');
   });
 
   $('resetBtn').addEventListener('click', () => {
     if (!confirm('Reset the roster, TSA support, and vacation status to the workbook defaults, then rebuild the balanced schedule?')) return;
-    state = freshBalancedState();
-    saveState();
-    render();
-    toast('Reset to defaults • sites and TSA support rebalanced');
+    setState(DP.normalizeState(freshBalancedState()), 'Reset to defaults • sites and TSA support rebalanced');
   });
 
   $('exportBtn').addEventListener('click', () => {

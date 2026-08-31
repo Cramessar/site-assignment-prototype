@@ -85,9 +85,11 @@
     const disabled = shift.off ? 'disabled' : '';
     const start = shift.off ? '' : shift.start;
     const end = shift.off ? '' : shift.end;
+    const status = shift.coverageStatus || 'working';
     return `<div class="schedule-inline-editor" data-schedule-editor="${esc(person.id)}">
       <label><span>Start</span><input type="time" value="${esc(start)}" data-schedule-start="${esc(person.id)}" ${disabled}></label>
       <label><span>End</span><input type="time" value="${esc(end)}" data-schedule-end="${esc(person.id)}" ${disabled}></label>
+      <label class="schedule-status-control"><span>Status</span><select data-schedule-status="${esc(person.id)}" ${disabled}><option value="working" ${status==='working'?'selected':''}>Working</option><option value="training" ${status==='training'?'selected':''}>Training</option><option value="meeting" ${status==='meeting'?'selected':''}>Meeting</option><option value="unavailable" ${status==='unavailable'?'selected':''}>Unavailable</option></select></label>
       <button type="button" data-schedule-off="${esc(person.id)}" class="${shift.off ? 'active' : ''}">${shift.off ? 'Restore' : 'Off'}</button>
       <button type="button" data-schedule-reset="${esc(person.id)}">Reset</button>
     </div>`;
@@ -96,7 +98,9 @@
   function publicDurationHTML(state, person, shift, dateKey) {
     if (shift.vacation) return `<div class="schedule-duration"><strong class="schedule-vacation">Vacation</strong><small>Not scheduled</small></div>`;
     if (shift.off) return `<div class="schedule-duration"><strong>Off</strong><small>Not scheduled</small>${S.rawOverride(state, person.id, dateKey) ? '<span class="schedule-exception">Exception</span>' : ''}</div>`;
-    return `<div class="schedule-duration"><strong>${esc(S.formatDuration(shift.durationMinutes))}</strong><small>${esc(S.formatTime(shift.start))}–${esc(S.formatTime(shift.end))}</small>${S.rawOverride(state, person.id, dateKey) ? '<span class="schedule-exception">Exception</span>' : ''}</div>`;
+    const status = shift.coverageStatus || 'working';
+    const statusLabel = status === 'working' ? '' : `<span class="schedule-exception">${esc(status[0].toUpperCase()+status.slice(1))}</span>`;
+    return `<div class="schedule-duration"><strong>${esc(S.formatDuration(shift.durationMinutes))}</strong><small>${esc(S.formatTime(shift.start))}–${esc(S.formatTime(shift.end))}</small>${statusLabel || (S.rawOverride(state, person.id, dateKey) ? '<span class="schedule-exception">Exception</span>' : '')}</div>`;
   }
 
   function rowHTML(state, person, dateKey, stats, options) {
@@ -107,7 +111,9 @@
     let trackContent = overlapZones(state, stats);
     if (pos) {
       const label = `${S.formatTime(shift.start)}–${S.formatTime(shift.end)}`;
-      trackContent += `<div class="schedule-bar ${person.shift === 'mid' ? 'mid' : 'morning'} ${tsaClass}" style="left:${pos.leftPct.toFixed(4)}%;width:${pos.widthPct.toFixed(4)}%" title="${esc(person.name)} • ${esc(label)}">${esc(label)}</div>`;
+      const statusClass = shift.coverageStatus && shift.coverageStatus !== 'working' ? 'noncoverage' : '';
+      const statusText = shift.coverageStatus && shift.coverageStatus !== 'working' ? ` • ${shift.coverageStatus}` : '';
+      trackContent += `<div class="schedule-bar ${person.shift === 'mid' ? 'mid' : 'morning'} ${tsaClass} ${statusClass}" style="left:${pos.leftPct.toFixed(4)}%;width:${pos.widthPct.toFixed(4)}%" title="${esc(person.name)} • ${esc(label + statusText)}">${esc(label)}${statusText ? ` • ${esc(shift.coverageStatus)}` : ''}</div>`;
     } else {
       trackContent += `<div class="schedule-off-bar">${shift.vacation ? 'Vacation' : 'Off'}</div>`;
     }

@@ -3,9 +3,10 @@
   const L = SiteCoverageLogic;
   const S = SiteScheduleLogic;
   const SV = SiteScheduleView;
+  const DP = DailyPlanLogic;
   const STORAGE_KEY = 'site-coverage-manager-v3';
   const PERSON_KEY = 'site-coverage-team-person';
-  let state = loadState();
+  let state = DP.normalizeState(loadState());
   let scheduleDateKey = SV.todayKey();
 
   const $ = id => document.getElementById(id);
@@ -23,7 +24,7 @@
       if (!raw) return L.rebalanceAssignments(L.clone(SEED));
       const parsed = JSON.parse(raw);
       if (!parsed || parsed.version !== SEED.version) return L.rebalanceAssignments(L.clone(SEED));
-      return parsed;
+      return DP.normalizeState(parsed);
     } catch {
       return L.rebalanceAssignments(L.clone(SEED));
     }
@@ -55,8 +56,9 @@
 
   function profileHeader(person) {
     const dailyShift = S.getShift(state, person.id, scheduleDateKey);
-    const statusClass = person.vacation || dailyShift.off ? 'vacation' : '';
-    const statusText = person.vacation ? 'On vacation' : dailyShift.off ? 'Not scheduled' : 'Scheduled';
+    const nonWorking = dailyShift.coverageStatus && dailyShift.coverageStatus !== 'working';
+    const statusClass = person.vacation || dailyShift.off || nonWorking ? 'vacation' : '';
+    const statusText = person.vacation ? 'On vacation' : dailyShift.off ? 'Not scheduled' : nonWorking ? dailyShift.coverageStatus[0].toUpperCase()+dailyShift.coverageStatus.slice(1) : 'Scheduled';
     return `<div class="profile-banner">
       <div>
         <div class="profile-name-row">
@@ -98,82 +100,54 @@
     </article>`;
   }
 
+  function planForSelectedDate() {
+    const applied = DP.appliedPlan(state, scheduleDateKey);
+    return { plan: applied || DP.generatePlan(state, scheduleDateKey), published: Boolean(applied), stale: applied ? DP.isPlanStale(state, scheduleDateKey, applied) : false };
+  }
+
+  function dailyPlanCard(person) {
+    const planInfo = planForSelectedDate();
+    const plan = planInfo.plan;
+    const notes = DP.notesForDate(state, scheduleDateKey);
+    const personNote = notes.people?.[person.id] || '';
+    if (person.role === 'tsa') {
+      const windows = (plan.windows || []).map(w => {
+        const engineers = Object.entries(w.tsaByEngineer || {}).filter(([,adminId])=>adminId===person.id).map(([id])=>personById(id)?.name||id);
+        if (!engineers.length) return '';
+        return `<div class="coverage-path-row"><span>${esc(S.formatTime(S.minutesToTime(w.start)))}–${esc(S.formatTime(S.minutesToTime(w.end)))}</span><strong>${esc(engineers.join(', '))}</strong></div>`;
+      }).filter(Boolean).join('');
+      return `<article class="team-card full daily-live-plan"><div class="card-kicker">${planInfo.published ? 'Published daily plan' : 'Generated daily plan'}</div><h3>Your date-aware TSA coverage</h3><p class="card-copy">This view follows the actual staffing windows for ${esc(SV.formatDateLabel(scheduleDateKey))}.${planInfo.stale ? ' A supervisor has staffing changes pending re-apply.' : ''}</p>${windows || '<div class="no-sites">No TSA coverage windows assigned to you for this date.</div>'}${personNote?`<div class="team-note"><strong>Supervisor note</strong><p>${esc(personNote)}</p></div>`:''}</article>`;
+    }
+    const windows = (plan.windows || []).filter(w => w.activeEngineers.includes(person.id)).map(w => {
+      const sites = w.personSites?.[person.id] || [];
+      const adminId = w.tsaByEngineer?.[person.id];
+      const load = sites.reduce((sum,id)=>sum+(siteById(id)?.tickets30||0),0);
+      return `<div class="daily-window-row"><div><strong>${esc(S.formatTime(S.minutesToTime(w.start)))}–${esc(S.formatTime(S.minutesToTime(w.end)))}</strong><small>${sites.length} sites • ${load.toLocaleString()} ticket weight • TSA ${esc(adminById(adminId)?.name || 'Uncovered')}</small></div><div class="daily-window-sites">${sites.map(id=>`<span>${esc(id)}</span>`).join('')}</div></div>`;
+    }).join('');
+    return `<article class="team-card full daily-live-plan"><div class="card-kicker">${planInfo.published ? 'Published daily plan' : 'Generated daily plan'}</div><h3>Your coverage by time</h3><p class="card-copy">Actual site ownership changes automatically at staffing boundaries.${planInfo.stale ? ' Staffing changed after this plan was published; a supervisor has a re-apply pending.' : ''}</p>${windows || '<div class="no-sites">You have no active coverage window for this date.</div>'}${personNote?`<div class="team-note"><strong>Supervisor note</strong><p>${esc(personNote)}</p></div>`:''}</article>`;
+  }
+
+  function teamNoteCard() {
+    const note = DP.notesForDate(state, scheduleDateKey).general || '';
+    return note ? `<article class="team-card full team-note"><div class="card-kicker">Daily note</div><h3>Supervisor note</h3><p>${esc(note)}</p></article>` : '';
+  }
+
   function engineerView(person) {
-    if (person.vacation) {
-      return profileHeader(person) + `<div class="assignment-grid"><article class="team-card full"><div class="card-kicker">Today's status</div><h3>You're marked on vacation.</h3><p class="card-copy">Your site and TSA assignments have been redistributed for coverage. When a supervisor marks you active again, the schedule will rebalance automatically.</p></article></div>`;
+    const dailyShift = S.getShift(state, person.id, scheduleDateKey);
+    if (person.vacation || dailyShift.off || (dailyShift.coverageStatus || 'working') !== 'working') {
+      const reason = person.vacation ? 'vacation' : dailyShift.off ? 'off' : dailyShift.coverageStatus;
+      return profileHeader(person) + `<div class="assignment-grid">${dailyPlanCard(person)}${teamNoteCard()}<article class="team-card full"><div class="card-kicker">Daily availability</div><h3>No active site coverage while ${esc(reason)}.</h3><p class="card-copy">The published Daily Plan redistributes coverage to people who are available during this window.</p></article></div>`;
     }
-
-    const morningSites = person.shift === 'morning' ? L.activeAssignmentsForPerson(state, person.id, 'morning') : [];
-    const overlapSites = L.activeAssignmentsForPerson(state, person.id, 'midday');
-    const overlapSet = new Set(overlapSites);
-    const handedOff = person.shift === 'morning' ? morningSites.filter(id => !overlapSet.has(id)) : [];
-    const morningLoad = L.personStats(state, person.id, 'morning');
-    const overlapLoad = L.personStats(state, person.id, 'midday');
-
-    let sitesCard = '';
-    if (person.shift === 'morning') {
-      sitesCard = `<article class="team-card">
-        <div class="card-kicker">6am–12pm</div>
-        <h3>Your morning sites</h3>
-        <p class="card-copy">You own these sites until the noon handoff.</p>
-        ${siteRows(morningSites)}
-        <div class="handoff-summary">
-          <div class="metric-mini"><strong>${morningLoad.siteCount}</strong><span>sites before noon</span></div>
-          <div class="metric-mini"><strong>${morningLoad.ticketLoad.toLocaleString()}</strong><span>30-day ticket weight</span></div>
-          <div class="metric-mini"><strong>${handedOff.length}</strong><span>hand off at noon</span></div>
-        </div>
-      </article>`;
-    } else {
-      sitesCard = `<article class="team-card">
-        <div class="card-kicker">12pm–8pm</div>
-        <h3>Your takeover sites</h3>
-        <p class="card-copy">These are the sites assigned to you when midday comes online.</p>
-        ${siteRows(overlapSites)}
-        <div class="handoff-summary">
-          <div class="metric-mini"><strong>${overlapLoad.siteCount}</strong><span>assigned sites</span></div>
-          <div class="metric-mini"><strong>${overlapLoad.ticketLoad.toLocaleString()}</strong><span>30-day ticket weight</span></div>
-          <div class="metric-mini"><strong>12pm</strong><span>coverage begins</span></div>
-        </div>
-      </article>`;
-    }
-
-    let secondSitesCard = '';
-    if (person.shift === 'morning') {
-      secondSitesCard = `<article class="team-card full">
-        <div class="card-kicker">12pm–4pm overlap</div>
-        <h3>Noon handoff</h3>
-        <p class="card-copy">You retain ${overlapSites.length} site${overlapSites.length === 1 ? '' : 's'}. The sites below move to midday at noon.</p>
-        ${handedOff.length ? siteRows(handedOff, 'handoff') : '<div class="no-sites">No sites hand off from you today.</div>'}
-      </article>`;
-    }
-
-    return profileHeader(person) + `<div class="assignment-grid">${sitesCard}${tsaCard(person)}${secondSitesCard}</div>`;
+    return profileHeader(person) + `<div class="assignment-grid">${dailyPlanCard(person)}${teamNoteCard()}</div>`;
   }
 
   function tsaView(admin) {
-    if (admin.vacation) {
-      return profileHeader(admin) + `<div class="assignment-grid"><article class="team-card full"><div class="card-kicker">Today's status</div><h3>You're marked on vacation.</h3><p class="card-copy">Your engineer pairings have been redistributed to the other TSAs for the day.</p></article></div>`;
+    const dailyShift = S.getShift(state, admin.id, scheduleDateKey);
+    if (admin.vacation || dailyShift.off || (dailyShift.coverageStatus || 'working') !== 'working') {
+      const reason = admin.vacation ? 'vacation' : dailyShift.off ? 'off' : dailyShift.coverageStatus;
+      return profileHeader(admin) + `<div class="assignment-grid">${dailyPlanCard(admin)}${teamNoteCard()}<article class="team-card full"><div class="card-kicker">Daily availability</div><h3>No TSA coverage while ${esc(reason)}.</h3><p class="card-copy">The Daily Plan moves active engineer support to another available TSA where possible.</p></article></div>`;
     }
-    const engineers = ((state.tsaAssignments || {})[admin.id] || []).map(personById).filter(Boolean).filter(p => !p.vacation);
-    const rows = engineers.length ? `<div class="engineer-support-list">${engineers.map(p => {
-      const load = L.personStats(state, p.id, 'midday');
-      return `<div class="engineer-support-row"><div><strong>${esc(p.name)} <span class="role-badge">${esc(roleShort(p.role))}</span></strong><small>${esc(shiftLabel(p.shift))} • ${load.siteCount} active sites • ${load.ticketLoad.toLocaleString()} ticket weight</small></div><span class="shift-pill ${p.shift === 'mid' ? 'mid' : ''}">${p.shift === 'morning' ? 'Morning' : 'Midday'}</span></div>`;
-    }).join('')}</div>` : '<div class="no-sites">No engineers are currently paired to you.</div>';
-    const diag = L.tsaDiagnostics(state).loads[admin.id] || { engineerCount: 0, morningCount: 0, midCount: 0, supportLoad: 0 };
-
-    return profileHeader(admin) + `<div class="assignment-grid">
-      <article class="team-card full">
-        <div class="card-kicker">Primary pairings</div>
-        <h3>Engineers you support</h3>
-        <p class="card-copy">These are your primary 12–4 pairings. Shift fallback still applies outside the overlap.</p>
-        ${rows}
-        <div class="handoff-summary">
-          <div class="metric-mini"><strong>${diag.engineerCount}</strong><span>engineers</span></div>
-          <div class="metric-mini"><strong>${diag.morningCount}/${diag.midCount}</strong><span>morning / midday mix</span></div>
-          <div class="metric-mini"><strong>${diag.supportLoad.toLocaleString()}</strong><span>support workload weight</span></div>
-        </div>
-      </article>
-    </div>`;
+    return profileHeader(admin) + `<div class="assignment-grid">${dailyPlanCard(admin)}${teamNoteCard()}</div>`;
   }
 
   function renderSelected(id) {
@@ -222,7 +196,7 @@
 
   function refreshFromStorage() {
     const selected = $('personSelect').value;
-    state = loadState();
+    state = DP.normalizeState(loadState());
     renderPicker();
     renderTeamSchedule();
     renderDirectory();

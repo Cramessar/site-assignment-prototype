@@ -81,3 +81,6 @@
   .schedule-board-inner.editable .schedule-axis,
   .schedule-board-inner.editable .schedule-row { grid-template-columns: 160px minmax(400px, 1fr) 310px; }
 }
+.schedule-inline-editor select { min-height: 34px; border: 1px solid #d9e0ea; border-radius: 7px; padding: 4px 6px; background: #fff; font: inherit; font-size: 11px; }
+.schedule-status-control { min-width: 98px; }
+.schedule-bar.noncoverage { opacity: .48; border-style: dashed; filter: saturate(.45); }

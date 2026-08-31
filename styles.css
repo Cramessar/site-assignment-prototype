@@ -181,3 +181,38 @@ td .owner-list { display: flex; gap: 5px; flex-wrap: wrap; }
 @media (max-width: 1100px) {
   .tsa-grid { grid-template-columns: 1fr; }
 }
+/* v6 — daily plan, scenario, locks, history */
+.daily-plan-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.health-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin-bottom:14px; }
+.health-item { border:1px solid var(--line); border-radius:12px; padding:12px; background:#fbfcfe; }
+.health-item.good { border-color:#bfe6ce; background:#f6fcf8; }
+.health-item.warn { border-color:#f0d89f; background:#fffdf8; }
+.health-item.bad { border-color:#f0c1bc; background:#fff9f8; }
+.health-item strong { display:block; margin-bottom:4px; }
+.health-item small { color:var(--muted); line-height:1.4; }
+.plan-preview { border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:12px; background:#fafcff; }
+.plan-preview strong { display:block; margin-bottom:4px; }
+.plan-preview p { margin:0; color:var(--muted); font-size:13px; }
+.daily-plan-columns { display:grid; grid-template-columns:1.25fr .75fr; gap:18px; }
+.subsection-heading.compact { margin-top:8px; padding-top:12px; }
+.plan-window { border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:9px; }
+.plan-window-top { display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
+.plan-window-people { display:flex; flex-wrap:wrap; gap:6px; }
+.plan-person-pill { background:#eef2f7; border-radius:7px; padding:5px 7px; font-size:11px; font-weight:750; }
+.plan-person-pill.mid { background:#e8f4ff; color:#1964a6; }
+.handoff-card { border-left:3px solid #9ca9bb; padding:8px 10px; margin-bottom:10px; background:#fafbfc; border-radius:0 9px 9px 0; }
+.handoff-card h4 { margin:0 0 5px; }
+.handoff-card p { margin:3px 0; color:var(--muted); font-size:12px; line-height:1.4; }
+.notes-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.notes-field, .person-note-editor label { display:grid; gap:6px; color:var(--muted); font-size:12px; font-weight:700; }
+.notes-field textarea, .person-note-editor textarea, .person-note-editor select, .lock-editor select { width:100%; border:1px solid var(--line); border-radius:9px; padding:9px; font:inherit; color:var(--ink); background:white; }
+.person-note-editor { display:grid; gap:10px; align-content:start; }
+.lock-editor { display:grid; grid-template-columns:1fr 1fr auto; gap:8px; margin-bottom:12px; }
+.lock-list { display:flex; flex-wrap:wrap; gap:8px; }
+.lock-item { display:flex; align-items:center; gap:8px; border:1px solid #d9d0ff; background:#f3f0ff; color:#5d43a7; border-radius:9px; padding:7px 9px; font-size:12px; font-weight:800; }
+.lock-item button { border:0; background:transparent; color:inherit; font-weight:900; }
+.fairness-history { overflow-x:auto; }
+.fairness-table { min-width:760px; }
+.scenario-banner { position:sticky; top:0; z-index:20; padding:10px 18px; background:#fff4d7; color:#764e00; border-bottom:1px solid #ecd18e; font-weight:800; display:flex; justify-content:center; gap:10px; }
+.scenario-banner button { border:1px solid #d7b86f; background:white; border-radius:7px; padding:4px 8px; font-weight:800; }
+@media(max-width:900px){.daily-plan-columns,.notes-grid{grid-template-columns:1fr}.lock-editor{grid-template-columns:1fr}}

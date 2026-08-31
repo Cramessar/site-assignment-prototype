@@ -75,7 +75,7 @@
     if (!person) return null;
     const defaults = scheduleRules(state);
     const base = defaults[person.shift] || defaults.morning;
-    return { start: base.start, end: base.end, off: false, source: 'default' };
+    return { start: base.start, end: base.end, off: false, coverageStatus: 'working', source: 'default' };
   }
 
   function rawOverride(state, personId, dateKey) {
@@ -87,20 +87,20 @@
     const person = staffById(state, personId);
     if (!person) return null;
     if (person.vacation) {
-      return { start: null, end: null, off: true, vacation: true, source: 'vacation', durationMinutes: 0 };
+      return { start: null, end: null, off: true, vacation: true, coverageStatus: 'vacation', source: 'vacation', durationMinutes: 0 };
     }
 
     const base = defaultShiftForPerson(state, personId);
     const override = rawOverride(state, personId, dateKey);
     const value = override ? { ...base, ...override, source: 'override' } : base;
-    if (value.off) return { ...value, start: null, end: null, off: true, vacation: false, durationMinutes: 0 };
+    if (value.off) return { ...value, start: null, end: null, off: true, vacation: false, coverageStatus: value.coverageStatus || 'off', durationMinutes: 0 };
 
     const startMinutes = timeToMinutes(value.start);
     const endMinutes = timeToMinutes(value.end);
     if (startMinutes == null || endMinutes == null || endMinutes <= startMinutes) {
       return { ...base, source: 'default', invalidOverride: Boolean(override), durationMinutes: timeToMinutes(base.end) - timeToMinutes(base.start) };
     }
-    return { ...value, off: false, vacation: false, durationMinutes: endMinutes - startMinutes };
+    return { ...value, off: false, vacation: false, coverageStatus: value.coverageStatus || 'working', durationMinutes: endMinutes - startMinutes };
   }
 
   function ensureOverrides(next, dateKey) {
@@ -115,7 +115,8 @@
     const endMinutes = timeToMinutes(end);
     if (startMinutes == null || endMinutes == null || endMinutes <= startMinutes) return next;
     ensureOverrides(next, dateKey);
-    next.scheduleOverrides[dateKey][personId] = { start, end, off: false };
+    const existing = next.scheduleOverrides[dateKey][personId] || {};
+    next.scheduleOverrides[dateKey][personId] = { ...existing, start, end, off: false, coverageStatus: existing.coverageStatus || 'working' };
     return next;
   }
 
@@ -124,11 +125,29 @@
     if (!staffById(next, personId) || !isDateKey(dateKey)) return next;
     ensureOverrides(next, dateKey);
     if (off) {
-      next.scheduleOverrides[dateKey][personId] = { off: true };
+      next.scheduleOverrides[dateKey][personId] = { off: true, coverageStatus: 'off' };
     } else {
       const base = defaultShiftForPerson(next, personId);
-      next.scheduleOverrides[dateKey][personId] = { start: base.start, end: base.end, off: false };
+      next.scheduleOverrides[dateKey][personId] = { start: base.start, end: base.end, off: false, coverageStatus: 'working' };
     }
+    return next;
+  }
+
+
+  function setCoverageStatus(state, personId, dateKey, coverageStatus) {
+    const allowed = new Set(['working', 'training', 'meeting', 'unavailable']);
+    const next = clone(state);
+    if (!staffById(next, personId) || !isDateKey(dateKey) || !allowed.has(coverageStatus)) return next;
+    ensureOverrides(next, dateKey);
+    const existing = next.scheduleOverrides[dateKey][personId] || {};
+    const base = defaultShiftForPerson(next, personId);
+    next.scheduleOverrides[dateKey][personId] = {
+      start: existing.start || base.start,
+      end: existing.end || base.end,
+      off: false,
+      ...existing,
+      coverageStatus
+    };
     return next;
   }
 
@@ -152,6 +171,13 @@
     const end = timeToMinutes(shift.end);
     if (start == null || end == null || end <= start) return null;
     return { start, end };
+  }
+
+
+  function intervalForCoverage(shift) {
+    if (!shift || shift.off || shift.vacation) return null;
+    if ((shift.coverageStatus || 'working') !== 'working') return null;
+    return intervalForShift(shift);
   }
 
   function overlapMinutes(a, b) {
@@ -293,9 +319,11 @@
     getShift,
     setShift,
     setOff,
+    setCoverageStatus,
     clearOverride,
     clearDay,
     intervalForShift,
+    intervalForCoverage,
     overlapMinutes,
     overlapsForPerson,
     coverageSegments,

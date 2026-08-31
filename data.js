@@ -10,6 +10,7 @@
       overlapMorningTarget: 0.60,
       overlapMidTarget: 0.40,
       lockedMorningAssignments: [{ personId: 'morning-carolyn', siteId: 'BRK - 6020' }],
+      assignmentLocks: [{ id: 'lock-brk-carolyn', personId: 'morning-carolyn', siteId: 'BRK - 6020' }],
       protectedOverlapSites: ['BRK - 6020'],
       scheduleDefaults: {
         morning: { start: '06:00', end: '16:00' },
@@ -92,6 +93,10 @@
       'mid-krysztof': ['TGT-WOOD', 'GRC-6024', 'BETH', 'HERM-6037']
     },
     middayPool: [],
-    scheduleOverrides: {}
+    scheduleOverrides: {},
+    dailyPlans: {},
+    dailyNotes: {},
+    fairnessHistory: {},
+    changeHistory: []
   };
 });
