@@ -3,158 +3,42 @@
   if (typeof module === 'object' && module.exports) module.exports = api;
   root.SiteScheduleView = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (S) {
-  function esc(value) {
-    return String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-  }
+  function esc(value){return String(value??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+  function todayKey(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+  function dateFromKey(dateKey){const [y,m,d]=String(dateKey||'').split('-').map(Number);return !y||!m||!d?new Date():new Date(y,m-1,d,12,0,0,0);}
+  function addDays(dateKey,amount){const d=dateFromKey(dateKey);d.setDate(d.getDate()+Number(amount||0));return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+  function formatDateLabel(dateKey){return dateFromKey(dateKey).toLocaleDateString([],{weekday:'long',month:'long',day:'numeric',year:'numeric'});}
+  function roleShort(role,title){return title || (role==='tce'?'TCE':role==='tse'?'TSE':role==='tsa'?'TSA':role==='tss'?'TSS':String(role||'').toUpperCase());}
+  function personDisplayName(person){return person?.fullName || person?.name || ''}
+  function shiftDefForPerson(state,person){return S.shiftDefinition(state,S.operationalShiftId(person));}
+  function shiftName(state,person){return shiftDefForPerson(state,person)?.name || 'Unassigned';}
 
-  function todayKey() {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  }
+  function axisMarks(state){const t=S.timelineRules(state),start=S.timeToMinutes(t.start),end=S.timeToMinutes(t.end),span=Math.max(1,end-start),step=240,marks=[];for(let minute=start;minute<=end;minute+=step){const left=((minute-start)/span)*100;marks.push(`<i class="schedule-hour" style="left:${left.toFixed(4)}%"><span>${esc(S.formatTime(S.minutesToTime(minute)))}</span></i>`);}return marks.join('');}
+  function overlapZones(state,stats){const t=S.timelineRules(state),start=S.timeToMinutes(t.start),end=S.timeToMinutes(t.end),span=Math.max(1,end-start);return stats.mergedOverlap.map(s=>{const left=((Math.max(start,s.start)-start)/span)*100,width=((Math.min(end,s.end)-Math.max(start,s.start))/span)*100;return width<=0?'':`<i class="schedule-overlap-zone" style="left:${left.toFixed(4)}%;width:${width.toFixed(4)}%" title="Weekend Day / Weekend Mid coverage overlap"></i>`}).join('');}
+  function overlapLabel(stats){if(!stats.mergedOverlap.length)return{value:'None',sub:'No Weekend Day / Weekend Mid overlap',tone:'warn'};const windows=stats.mergedOverlap.map(s=>`${S.formatTime(S.minutesToTime(s.start))}–${S.formatTime(S.minutesToTime(s.end))}`);return{value:windows.join(', '),sub:`${S.formatDuration(stats.overlapMinutes)} current coverage-team overlap`,tone:'good'};}
+  function summaryHTML(state,dateKey){const stats=S.dayStats(state,dateKey),overlap=overlapLabel(stats),configured=S.shiftCatalog(state).filter(s=>s.defaultStart&&s.defaultEnd).length,totalShifts=S.shiftCatalog(state).filter(s=>s.id!=='unassigned').length;const card=(l,v,sub,t='')=>`<div class="schedule-summary-card ${t}"><span>${esc(l)}</span><strong>${esc(v)}</strong><small>${esc(sub)}</small></div>`;return[
+    card('Coverage-team overlap',overlap.value,overlap.sub,overlap.tone),
+    card('People scheduled',String(stats.activeCount),`${stats.totalHours.toFixed(stats.totalHours%1?1:0)} total scheduled hours`),
+    card('Shift defaults',`${configured}/${totalShifts}`,configured<totalShifts?'Some shift hours still need configuration':'All shift hours configured',configured<totalShifts?'warn':'good'),
+    card('Daily exceptions',String(stats.exceptions),stats.exceptions?'Custom hours / status / off':'Everyone on shift defaults',stats.exceptions?'warn':'')
+  ].join('');}
 
-  function dateFromKey(dateKey) {
-    const [year, month, day] = String(dateKey || '').split('-').map(Number);
-    if (!year || !month || !day) return new Date();
-    return new Date(year, month - 1, day, 12, 0, 0, 0);
-  }
+  function editorHTML(person,shift,vacation){if(vacation)return `<div class="schedule-duration"><strong class="schedule-vacation">Vacation</strong><small>Assignments redistributed where configured</small></div>`;const disabled=shift.off?'disabled':'',start=shift.off?'':(shift.start||''),end=shift.off?'':(shift.end||''),status=shift.coverageStatus||'working';return `<div class="schedule-inline-editor" data-schedule-editor="${esc(person.id)}">
+    <label><span>Start</span><input type="time" value="${esc(start)}" data-schedule-start="${esc(person.id)}" ${disabled}></label>
+    <label><span>End</span><input type="time" value="${esc(end)}" data-schedule-end="${esc(person.id)}" ${disabled}></label>
+    <label class="schedule-status-control"><span>Status</span><select data-schedule-status="${esc(person.id)}" ${disabled}><option value="working" ${status==='working'?'selected':''}>Working</option><option value="training" ${status==='training'?'selected':''}>Training</option><option value="meeting" ${status==='meeting'?'selected':''}>Meeting</option><option value="unavailable" ${status==='unavailable'?'selected':''}>Unavailable</option></select></label>
+    <button type="button" data-schedule-off="${esc(person.id)}" class="${shift.off?'active':''}">${shift.off?'Restore':'Off'}</button><button type="button" data-schedule-reset="${esc(person.id)}">Reset</button>
+  </div>`;}
+  function publicDurationHTML(state,person,shift,dateKey){if(shift.vacation)return `<div class="schedule-duration"><strong class="schedule-vacation">Vacation</strong><small>Not scheduled</small></div>`;if(shift.off)return `<div class="schedule-duration"><strong>Off</strong><small>Not scheduled</small>${S.rawOverride(state,person.id,dateKey)?'<span class="schedule-exception">Exception</span>':''}</div>`;if(shift.unconfigured)return `<div class="schedule-duration"><strong>Hours TBD</strong><small>Shift default not configured</small></div>`;const status=shift.coverageStatus||'working',statusLabel=status==='working'?'':`<span class="schedule-exception">${esc(status[0].toUpperCase()+status.slice(1))}</span>`;return `<div class="schedule-duration"><strong>${esc(S.formatDuration(shift.durationMinutes))}</strong><small>${esc(S.formatTime(shift.start))}–${esc(S.formatTime(shift.end))}</small>${statusLabel||(S.rawOverride(state,person.id,dateKey)?'<span class="schedule-exception">Exception</span>':'')}</div>`;}
 
-  function addDays(dateKey, amount) {
-    const d = dateFromKey(dateKey);
-    d.setDate(d.getDate() + Number(amount || 0));
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  }
+  function rowHTML(state,person,dateKey,stats,options){const shift=S.getShift(state,person.id,dateKey),pos=S.barPosition(state,shift),selected=options.selectedPersonId===person.id?'selected':'',group=S.coverageGroup(person),tsa=person.role==='tsa'?'tsa':'';let track=overlapZones(state,stats);if(pos){const label=`${S.formatTime(shift.start)}–${S.formatTime(shift.end)}`,statusClass=shift.coverageStatus&&shift.coverageStatus!=='working'?'noncoverage':'';track+=`<div class="schedule-bar ${group==='mid'?'mid':group==='morning'?'morning':'other'} ${tsa} ${statusClass}" style="left:${pos.leftPct.toFixed(4)}%;width:${pos.widthPct.toFixed(4)}%" title="${esc(personDisplayName(person))} • ${esc(label)}">${esc(label)}${shift.durationMinutes>720?' • '+esc(S.formatDuration(shift.durationMinutes)):''}</div>`;}else track+=`<div class="schedule-off-bar">${shift.vacation?'Vacation':shift.off?'Off':shift.unconfigured?'Hours not configured':'Off'}</div>`;
+    const right=options.editable?editorHTML(person,shift,person.vacation):publicDurationHTML(state,person,shift,dateKey),manager=person.manager?` • Mgr ${person.manager}`:'';
+    return `<div class="schedule-row ${selected}" data-schedule-person="${esc(person.id)}"><div class="schedule-person"><strong>${esc(personDisplayName(person))}</strong><small>${esc(roleShort(person.role,person.title))}${esc(manager)}</small></div><div class="schedule-track">${track}</div>${right}</div>`;}
 
-  function formatDateLabel(dateKey) {
-    return dateFromKey(dateKey).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-  }
+  function groupPeople(state,shiftId){return S.allStaff(state).filter(p=>S.operationalShiftId(p)===shiftId).sort((a,b)=>{const sa=a.role==='tss'||a.role==='manager'?-1:a.role==='tsa'?1:0,sb=b.role==='tss'||b.role==='manager'?-1:b.role==='tsa'?1:0;return sa-sb||personDisplayName(a).localeCompare(personDisplayName(b));});}
+  function boardHTML(state,dateKey,options={}){const stats=S.dayStats(state,dateKey),axisRight=options.editable?'Shift controls':'Duration',axis=`<div class="schedule-axis"><div class="schedule-axis-label">Team member</div><div class="schedule-axis-track">${axisMarks(state)}</div><div class="schedule-axis-label" style="text-align:right">${esc(axisRight)}</div></div>`;const groups=S.shiftCatalog(state).map(def=>{const people=groupPeople(state,def.id);if(!people.length)return'';const hours=def.defaultStart&&def.defaultEnd?`Default ${S.formatTime(def.defaultStart)}–${S.formatTime(def.defaultEnd)}`:'Default hours not configured';return `<div class="schedule-group shift-group-v7"><strong>${esc(def.name)}</strong><span>${esc(hours)} • Supervisor: ${esc(def.supervisorName||'Not assigned')} • ${people.length} people</span></div>${people.map(p=>rowHTML(state,p,dateKey,stats,options)).join('')}`;}).join('');return `<div class="schedule-board-scroll"><div class="schedule-board-inner ${options.editable?'editable':''}">${axis}${groups}</div></div>`;}
 
-  function roleShort(role) {
-    return role === 'tce' ? 'TCE' : role === 'tse' ? 'TSE' : role === 'tsa' ? 'TSA' : String(role || '').toUpperCase();
-  }
+  function personScheduleHTML(state,personId,dateKey){const person=S.staffById(state,personId);if(!person)return'';const shift=S.getShift(state,personId,dateKey),def=shiftDefForPerson(state,person);if(shift.vacation)return `<div class="schedule-person-mini"><strong>Vacation</strong><span>${esc(formatDateLabel(dateKey))} • ${esc(def?.name||'Unassigned')}</span></div>`;if(shift.off)return `<div class="schedule-person-mini"><strong>Not scheduled</strong><span>${esc(formatDateLabel(dateKey))} • ${esc(def?.name||'Unassigned')}</span></div>`;if(shift.unconfigured)return `<div class="schedule-person-mini"><strong>Default hours not configured</strong><span>${esc(def?.name||'Unassigned')} • Supervisor ${esc(def?.supervisorName||'Not assigned')}</span></div>`;const overlaps=S.overlapsForPerson(state,personId,dateKey).filter(x=>S.operationalShiftId(x.person)!==S.operationalShiftId(person)),pills=overlaps.slice(0,8).map(x=>`<span class="schedule-overlap-pill">${esc(personDisplayName(x.person))} • ${esc(S.formatDuration(x.minutes))}</span>`).join('');return `<div class="schedule-person-mini"><strong>${esc(S.formatTime(shift.start))}–${esc(S.formatTime(shift.end))} • ${esc(S.formatDuration(shift.durationMinutes))}</strong><span>${esc(formatDateLabel(dateKey))} • ${esc(def?.name||'Unassigned')}${S.rawOverride(state,personId,dateKey)?' • adjusted shift':''}</span></div>${pills?`<div class="schedule-overlap-list">${pills}</div>`:''}`;}
 
-  function shiftName(shift) {
-    return shift === 'morning' ? 'Morning' : 'Midday';
-  }
-
-  function axisMarks(state) {
-    const timeline = S.timelineRules(state);
-    const start = S.timeToMinutes(timeline.start);
-    const end = S.timeToMinutes(timeline.end);
-    const span = Math.max(1, end - start);
-    const marks = [];
-    for (let minute = start; minute <= end; minute += 120) {
-      const left = ((minute - start) / span) * 100;
-      marks.push(`<i class="schedule-hour" style="left:${left.toFixed(4)}%"><span>${esc(S.formatTime(S.minutesToTime(Math.min(minute, 1439))))}</span></i>`);
-    }
-    return marks.join('');
-  }
-
-  function overlapZones(state, stats) {
-    const timeline = S.timelineRules(state);
-    const start = S.timeToMinutes(timeline.start);
-    const end = S.timeToMinutes(timeline.end);
-    const span = Math.max(1, end - start);
-    return stats.mergedOverlap.map(segment => {
-      const left = ((Math.max(start, segment.start) - start) / span) * 100;
-      const width = ((Math.min(end, segment.end) - Math.max(start, segment.start)) / span) * 100;
-      if (width <= 0) return '';
-      return `<i class="schedule-overlap-zone" style="left:${left.toFixed(4)}%;width:${width.toFixed(4)}%" title="Cross-team overlap"></i>`;
-    }).join('');
-  }
-
-  function overlapLabel(stats) {
-    if (!stats.mergedOverlap.length) return { value: 'None', sub: 'No cross-team overlap', tone: 'warn' };
-    const windows = stats.mergedOverlap.map(s => `${S.formatTime(S.minutesToTime(s.start))}–${S.formatTime(S.minutesToTime(s.end))}`);
-    return { value: windows.join(', '), sub: `${S.formatDuration(stats.overlapMinutes)} total overlap`, tone: 'good' };
-  }
-
-  function summaryHTML(state, dateKey) {
-    const stats = S.dayStats(state, dateKey);
-    const overlap = overlapLabel(stats);
-    const card = (label, value, sub, tone = '') => `<div class="schedule-summary-card ${tone}"><span>${esc(label)}</span><strong>${esc(value)}</strong><small>${esc(sub)}</small></div>`;
-    return [
-      card('Cross-team overlap', overlap.value, overlap.sub, overlap.tone),
-      card('Morning scheduled', `${stats.morningHours.toFixed(stats.morningHours % 1 ? 1 : 0)}h`, `${stats.morningCount} people scheduled`),
-      card('Midday scheduled', `${stats.midHours.toFixed(stats.midHours % 1 ? 1 : 0)}h`, `${stats.midCount} people scheduled`),
-      card('Daily exceptions', String(stats.exceptions), stats.exceptions ? 'Custom shift or day off' : 'Everyone on default shift', stats.exceptions ? 'warn' : '')
-    ].join('');
-  }
-
-  function editorHTML(person, shift, vacation) {
-    if (vacation) return `<div class="schedule-duration"><strong class="schedule-vacation">Vacation</strong><small>Assignments redistributed</small></div>`;
-    const disabled = shift.off ? 'disabled' : '';
-    const start = shift.off ? '' : shift.start;
-    const end = shift.off ? '' : shift.end;
-    const status = shift.coverageStatus || 'working';
-    return `<div class="schedule-inline-editor" data-schedule-editor="${esc(person.id)}">
-      <label><span>Start</span><input type="time" value="${esc(start)}" data-schedule-start="${esc(person.id)}" ${disabled}></label>
-      <label><span>End</span><input type="time" value="${esc(end)}" data-schedule-end="${esc(person.id)}" ${disabled}></label>
-      <label class="schedule-status-control"><span>Status</span><select data-schedule-status="${esc(person.id)}" ${disabled}><option value="working" ${status==='working'?'selected':''}>Working</option><option value="training" ${status==='training'?'selected':''}>Training</option><option value="meeting" ${status==='meeting'?'selected':''}>Meeting</option><option value="unavailable" ${status==='unavailable'?'selected':''}>Unavailable</option></select></label>
-      <button type="button" data-schedule-off="${esc(person.id)}" class="${shift.off ? 'active' : ''}">${shift.off ? 'Restore' : 'Off'}</button>
-      <button type="button" data-schedule-reset="${esc(person.id)}">Reset</button>
-    </div>`;
-  }
-
-  function publicDurationHTML(state, person, shift, dateKey) {
-    if (shift.vacation) return `<div class="schedule-duration"><strong class="schedule-vacation">Vacation</strong><small>Not scheduled</small></div>`;
-    if (shift.off) return `<div class="schedule-duration"><strong>Off</strong><small>Not scheduled</small>${S.rawOverride(state, person.id, dateKey) ? '<span class="schedule-exception">Exception</span>' : ''}</div>`;
-    const status = shift.coverageStatus || 'working';
-    const statusLabel = status === 'working' ? '' : `<span class="schedule-exception">${esc(status[0].toUpperCase()+status.slice(1))}</span>`;
-    return `<div class="schedule-duration"><strong>${esc(S.formatDuration(shift.durationMinutes))}</strong><small>${esc(S.formatTime(shift.start))}–${esc(S.formatTime(shift.end))}</small>${statusLabel || (S.rawOverride(state, person.id, dateKey) ? '<span class="schedule-exception">Exception</span>' : '')}</div>`;
-  }
-
-  function rowHTML(state, person, dateKey, stats, options) {
-    const shift = S.getShift(state, person.id, dateKey);
-    const pos = S.barPosition(state, shift);
-    const selected = options.selectedPersonId === person.id ? 'selected' : '';
-    const tsaClass = person.role === 'tsa' ? 'tsa' : '';
-    let trackContent = overlapZones(state, stats);
-    if (pos) {
-      const label = `${S.formatTime(shift.start)}–${S.formatTime(shift.end)}`;
-      const statusClass = shift.coverageStatus && shift.coverageStatus !== 'working' ? 'noncoverage' : '';
-      const statusText = shift.coverageStatus && shift.coverageStatus !== 'working' ? ` • ${shift.coverageStatus}` : '';
-      trackContent += `<div class="schedule-bar ${person.shift === 'mid' ? 'mid' : 'morning'} ${tsaClass} ${statusClass}" style="left:${pos.leftPct.toFixed(4)}%;width:${pos.widthPct.toFixed(4)}%" title="${esc(person.name)} • ${esc(label + statusText)}">${esc(label)}${statusText ? ` • ${esc(shift.coverageStatus)}` : ''}</div>`;
-    } else {
-      trackContent += `<div class="schedule-off-bar">${shift.vacation ? 'Vacation' : 'Off'}</div>`;
-    }
-
-    const right = options.editable ? editorHTML(person, shift, person.vacation) : publicDurationHTML(state, person, shift, dateKey);
-    return `<div class="schedule-row ${selected}" data-schedule-person="${esc(person.id)}">
-      <div class="schedule-person"><strong>${esc(person.name)}</strong><small>${esc(roleShort(person.role))} • ${esc(shiftName(person.shift))}${person.role === 'tsa' ? ' support' : ' team'}</small></div>
-      <div class="schedule-track">${trackContent}</div>
-      ${right}
-    </div>`;
-  }
-
-  function groupPeople(state, shift) {
-    return S.allStaff(state)
-      .filter(p => p.shift === shift)
-      .sort((a, b) => (a.role === 'tsa' ? 1 : 0) - (b.role === 'tsa' ? 1 : 0) || a.name.localeCompare(b.name));
-  }
-
-  function boardHTML(state, dateKey, options = {}) {
-    const stats = S.dayStats(state, dateKey);
-    const axisRight = options.editable ? 'Shift controls' : 'Duration';
-    const axis = `<div class="schedule-axis"><div class="schedule-axis-label">Team member</div><div class="schedule-axis-track">${axisMarks(state)}</div><div class="schedule-axis-label" style="text-align:right">${esc(axisRight)}</div></div>`;
-    const groups = ['morning', 'mid'].map(shift => {
-      const people = groupPeople(state, shift);
-      const base = S.scheduleRules(state)[shift];
-      return `<div class="schedule-group"><strong>${shift === 'morning' ? 'Morning team' : 'Midday team'}</strong><span>Default ${esc(S.formatTime(base.start))}–${esc(S.formatTime(base.end))}</span></div>${people.map(p => rowHTML(state, p, dateKey, stats, options)).join('')}`;
-    }).join('');
-    return `<div class="schedule-board-scroll"><div class="schedule-board-inner ${options.editable ? 'editable' : ''}">${axis}${groups}</div></div>`;
-  }
-
-  function personScheduleHTML(state, personId, dateKey) {
-    const person = S.staffById(state, personId);
-    if (!person) return '';
-    const shift = S.getShift(state, personId, dateKey);
-    if (shift.vacation) return `<div class="schedule-person-mini"><strong>Vacation</strong><span>${esc(formatDateLabel(dateKey))}</span></div>`;
-    if (shift.off) return `<div class="schedule-person-mini"><strong>Not scheduled</strong><span>${esc(formatDateLabel(dateKey))}</span></div>`;
-    const overlaps = S.overlapsForPerson(state, personId, dateKey);
-    const cross = overlaps.filter(x => x.person.shift !== person.shift);
-    const pills = cross.slice(0, 8).map(x => `<span class="schedule-overlap-pill">${esc(x.person.name)} • ${esc(S.formatDuration(x.minutes))}</span>`).join('');
-    return `<div class="schedule-person-mini"><strong>${esc(S.formatTime(shift.start))}–${esc(S.formatTime(shift.end))} • ${esc(S.formatDuration(shift.durationMinutes))}</strong><span>${esc(formatDateLabel(dateKey))}${S.rawOverride(state, personId, dateKey) ? ' • adjusted shift' : ''}</span></div>${pills ? `<div class="schedule-overlap-list">${pills}</div>` : ''}`;
-  }
-
-  return { todayKey, addDays, formatDateLabel, roleShort, summaryHTML, boardHTML, personScheduleHTML };
+  return {todayKey,addDays,formatDateLabel,roleShort,personDisplayName,shiftName,summaryHTML,boardHTML,personScheduleHTML};
 });

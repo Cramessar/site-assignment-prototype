@@ -4,7 +4,7 @@
   const S = SiteScheduleLogic;
   const SV = SiteScheduleView;
   const DP = DailyPlanLogic;
-  const STORAGE_KEY = 'site-coverage-manager-v3';
+  const STORAGE_KEY = 'site-coverage-manager-v7';
   let state = DP.normalizeState(loadState());
   let committedState = DP.clone(state);
   let scenarioMode = false;
@@ -21,7 +21,7 @@
   const pct = value => `${(value * 100).toFixed(1)}%`;
   const roleLabel = role => role === 'tce' ? 'Technical Control Engineer' : role === 'tse' ? 'Technical Support Engineer' : role === 'tsa' ? 'Technical Support Administrator' : role || '';
   const roleShort = role => role === 'tce' ? 'TCE' : role === 'tse' ? 'TSE' : role === 'tsa' ? 'TSA' : String(role || '').toUpperCase();
-  const shiftLabel = shift => shift === 'morning' ? 'Morning • 6am–4pm' : 'Midday • 12pm–8pm';
+  const shiftLabel = shift => shift === 'morning' ? 'Weekend Day • 6am–4pm' : 'Weekend Mid • 12pm–8pm';
 
   function freshBalancedState() {
     return L.rebalanceAssignments(L.clone(SEED));
@@ -81,9 +81,9 @@
     const tsaTone = d.tsa.uncoveredWindows.length || d.tsa.missingPrimary.length ? 'bad' : 'good';
     $('summary').innerHTML = [
       summaryCard('Total sites', d.totalSites, `${d.totalTickets.toLocaleString()} tickets / 30d`),
-      summaryCard('6–12 morning coverage', `${d.morningCovered}/${d.totalSites}`, d.morningMissing.length ? `${d.morningMissing.length} need coverage` : 'Full coverage', d.morningMissing.length ? 'bad' : 'good'),
-      summaryCard('12–4 morning workload', pct(d.overlap.morningPct), `${d.overlap.morningTickets.toLocaleString()} tickets • target ${Math.round(d.targetMorningPct * 100)}%`, Math.abs(d.overlap.morningPct - d.targetMorningPct) <= .02 ? 'good' : 'warn'),
-      summaryCard('12–4 midday workload', pct(d.overlap.midPct), `${d.overlap.midTickets.toLocaleString()} tickets • target ${Math.round(d.targetMidPct * 100)}%`, Math.abs(d.overlap.midPct - d.targetMidPct) <= .02 ? 'good' : 'warn'),
+      summaryCard('6–12 Weekend Day coverage', `${d.morningCovered}/${d.totalSites}`, d.morningMissing.length ? `${d.morningMissing.length} need coverage` : 'Full coverage', d.morningMissing.length ? 'bad' : 'good'),
+      summaryCard('12–4 Weekend Day workload', pct(d.overlap.morningPct), `${d.overlap.morningTickets.toLocaleString()} tickets • target ${Math.round(d.targetMorningPct * 100)}%`, Math.abs(d.overlap.morningPct - d.targetMorningPct) <= .02 ? 'good' : 'warn'),
+      summaryCard('12–4 Weekend Mid workload', pct(d.overlap.midPct), `${d.overlap.midTickets.toLocaleString()} tickets • target ${Math.round(d.targetMidPct * 100)}%`, Math.abs(d.overlap.midPct - d.targetMidPct) <= .02 ? 'good' : 'warn'),
       summaryCard('TSA coverage', `${d.tsa.coveredPrimaryCount}/${d.tsa.activeEngineerCount}`, d.tsa.uncoveredWindows.length ? `${d.tsa.uncoveredWindows.length} time-window gap${d.tsa.uncoveredWindows.length === 1 ? '' : 's'}` : 'All active engineers covered', tsaTone),
       summaryCard('Duplicate assignments', duplicateCount, duplicateCount ? 'Review highlighted sites' : 'No conflicts', duplicateCount ? 'bad' : 'good'),
       summaryCard('On vacation', allVacation.length, allVacation.join(', ') || 'Nobody', allVacation.length ? 'warn' : '')
@@ -111,12 +111,12 @@
     ];
 
     $('diagnostics').innerHTML = [
-      box('Morning missing coverage', d.morningMissing, 'All 38 sites have morning coverage.'),
-      box('Morning duplicate assignments', morningDupes, 'No morning duplicate assignments.'),
-      box('Midday duplicate assignments', midDupes, 'No midday duplicate assignments.'),
+      box('Weekend Day missing coverage', d.morningMissing, 'All 38 sites have morning coverage.'),
+      box('Weekend Day duplicate assignments', morningDupes, 'No morning duplicate assignments.'),
+      box('Weekend Mid duplicate assignments', midDupes, 'No midday duplicate assignments.'),
       box('TSA support coverage', tsaIssues, 'Every active engineer has a complete TSA coverage path.'),
-      box('Midday reassignment pool', handoffPool, 'No takeover sites are waiting for reassignment.', true),
-      box('Effective midday coverage', effectiveIssues, 'Every site has one effective coverage path after takeovers.'),
+      box('Weekend Mid reassignment pool', handoffPool, 'No takeover sites are waiting for reassignment.', true),
+      box('Effective Weekend Mid coverage', effectiveIssues, 'Every site has one effective coverage path after takeovers.'),
       splitBox
     ].join('');
   }
@@ -296,6 +296,31 @@
     }).join('');
   }
 
+  function renderShiftSetup() {
+    const staff = S.allStaff(state);
+    const catalog = S.shiftCatalog(state);
+    const supplied = state.rosterMeta?.latestRosterCount || staff.length;
+    $('rosterCountBadge').innerHTML = `<span class="badge neutral">${staff.length} people in prototype • ${supplied} supplied roster rows</span>`;
+    $('shiftSetup').innerHTML = catalog.map(def => {
+      const members = staff.filter(p => S.operationalShiftId(p) === def.id);
+      if (!members.length && def.id === 'unassigned') return '';
+      const configured = Boolean(def.defaultStart && def.defaultEnd);
+      const coverage = def.coverageGroup ? `<span class="badge success">Current site coverage</span>` : '';
+      const hours = configured ? `${S.formatTime(def.defaultStart)}–${S.formatTime(def.defaultEnd)}` : 'Hours not configured';
+      return `<article class="shift-setup-card ${configured ? '' : 'needs-hours'}">
+        <div class="shift-setup-head"><div><h3>${esc(def.name)}</h3><p><strong>${esc(def.supervisorName || 'Not assigned')}</strong> • ${esc(def.supervisorTitle || 'Supervisor')}</p></div>${coverage}</div>
+        <div class="shift-setup-meta"><span>${members.length} team member${members.length===1?'':'s'}</span><span>${esc(hours)}</span></div>
+        <div class="shift-default-editor" data-shift-editor="${esc(def.id)}">
+          <label><span>Default start</span><input type="time" data-shift-default-start="${esc(def.id)}" value="${esc(def.defaultStart || '')}"></label>
+          <label><span>Default end</span><input type="time" data-shift-default-end="${esc(def.id)}" value="${esc(def.defaultEnd || '')}"></label>
+          <button type="button" class="button primary small" data-shift-default-save="${esc(def.id)}">Save default</button>
+          ${configured && !def.coverageGroup ? `<button type="button" class="button secondary small" data-shift-default-clear="${esc(def.id)}">Clear</button>` : ''}
+        </div>
+        ${def.id === 'unassigned' ? '<small class="shift-setup-note">Andrea Capuras has no shift value in the supplied roster, so she is shown here until assigned.</small>' : ''}
+      </article>`;
+    }).join('');
+  }
+
   function renderSchedule() {
     $('scheduleDate').value = scheduleDateKey;
     $('scheduleDayLabel').textContent = SV.formatDateLabel(scheduleDateKey);
@@ -355,9 +380,9 @@
   function renderNotes() {
     const notes = DP.notesForDate(state, scheduleDateKey);
     $('dailyGeneralNote').value = notes.general || '';
-    const staff = S.allStaff(state).slice().sort((a,b)=>a.name.localeCompare(b.name));
+    const staff = S.allStaff(state).slice().sort((a,b)=>(a.fullName||a.name).localeCompare(b.fullName||b.name));
     const current = $('personNoteSelect').value;
-    $('personNoteSelect').innerHTML = staff.map(p=>`<option value="${esc(p.id)}">${esc(p.name)} • ${esc(roleShort(p.role))}</option>`).join('');
+    $('personNoteSelect').innerHTML = staff.map(p=>`<option value="${esc(p.id)}">${esc(p.fullName || p.name)} • ${esc(roleShort(p.role))}</option>`).join('');
     if (current && staff.some(p=>p.id===current)) $('personNoteSelect').value = current;
     const selected = $('personNoteSelect').value || staff[0]?.id;
     $('personNoteText').value = notes.people?.[selected] || '';
@@ -366,7 +391,7 @@
   function renderLocks() {
     const locks = DP.assignmentLocks(state);
     $('lockSiteSelect').innerHTML = state.sites.map(s=>`<option value="${esc(s.id)}">${esc(s.id)} • ${s.tickets30} tickets</option>`).join('');
-    $('lockPersonSelect').innerHTML = state.people.filter(p=>p.shift==='morning').map(p=>`<option value="${esc(p.id)}">${esc(p.name)} • ${esc(roleShort(p.role))}</option>`).join('');
+    $('lockPersonSelect').innerHTML = state.people.filter(p=>p.shift==='morning').map(p=>`<option value="${esc(p.id)}">${esc(p.fullName || p.name)} • ${esc(roleShort(p.role))}</option>`).join('');
     $('assignmentLocks').innerHTML = locks.length ? locks.map(lock=>`<span class="lock-item">${esc(lock.siteId)} → ${esc(personById(lock.personId)?.name||lock.personId)} <button type="button" data-remove-lock="${esc(lock.id)}" aria-label="Remove lock">×</button></span>`).join('') : '<span class="empty-sites">No assignment locks configured.</span>';
   }
 
@@ -394,6 +419,7 @@
   function render() {
     renderScenario();
     renderSummary();
+    renderShiftSetup();
     renderSchedule();
     renderDailyPlan();
     renderNotes();
@@ -414,8 +440,8 @@ document.querySelectorAll('[data-schedule-start], [data-schedule-end]').forEach(
   const editor = document.querySelector(`[data-schedule-editor="${personId}"]`);
   const start = editor?.querySelector('[data-schedule-start]')?.value;
   const end = editor?.querySelector('[data-schedule-end]')?.value;
-  if (!start || !end || S.timeToMinutes(end) <= S.timeToMinutes(start)) {
-    toast('End time must be later than start time');
+  if (!start || !end || !S.intervalFromTimes(start, end)) {
+    toast('Enter a valid shift. Overnight shifts such as 8 PM–6 AM are supported');
     return;
   }
   const person = S.staffById(state, personId);
@@ -507,6 +533,21 @@ document.querySelectorAll('[data-schedule-reset]').forEach(btn => btn.addEventLi
       setState(DP.removeLock(state, btn.dataset.removeLock), 'Assignment lock removed • baseline rebalanced');
     }));
 
+    document.querySelectorAll('[data-shift-default-save]').forEach(btn => btn.addEventListener('click', () => {
+      const shiftId = btn.dataset.shiftDefaultSave;
+      const editor = document.querySelector(`[data-shift-editor="${shiftId}"]`);
+      const start = editor?.querySelector('[data-shift-default-start]')?.value;
+      const end = editor?.querySelector('[data-shift-default-end]')?.value;
+      if (!start || !end || !S.intervalFromTimes(start, end)) { toast('Enter valid default hours; overnight shifts are allowed'); return; }
+      const def = S.shiftDefinition(state, shiftId);
+      setState(S.setShiftDefault(state, shiftId, start, end), `${def?.name || shiftId} default set to ${S.formatTime(start)}–${S.formatTime(end)}`);
+    }));
+    document.querySelectorAll('[data-shift-default-clear]').forEach(btn => btn.addEventListener('click', () => {
+      const shiftId = btn.dataset.shiftDefaultClear;
+      const def = S.shiftDefinition(state, shiftId);
+      setState(S.clearShiftDefault(state, shiftId), `${def?.name || shiftId} default hours cleared`);
+    }));
+
     wireScheduleEvents();
   }
 
@@ -583,7 +624,7 @@ document.querySelectorAll('[data-schedule-reset]').forEach(btn => btn.addEventLi
   });
 
   $('resetBtn').addEventListener('click', () => {
-    if (!confirm('Reset the roster, TSA support, and vacation status to the workbook defaults, then rebuild the balanced schedule?')) return;
+    if (!confirm('Reset the roster, shift setup, TSA support, and vacation status to the prototype defaults, then rebuild the balanced schedule?')) return;
     setState(DP.normalizeState(freshBalancedState()), 'Reset to defaults • sites and TSA support rebalanced');
   });
 

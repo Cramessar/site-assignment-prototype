@@ -1,13 +1,13 @@
-# Site Coverage Manager — Prototype v6
+# Site Coverage Manager — Prototype v7
 
-A browser-based prototype for site assignment, TSA support, staffing calendars, and date-aware daily coverage planning.
+A browser-based prototype for site assignment, TSA support, multi-shift staffing calendars, supervisors, and date-aware daily coverage planning.
 
 ## Run it
 
 Open `index.html` directly, or serve the folder locally:
 
 ```powershell
-cd path\to\site-assignment-prototype-v6
+cd path\to\site-assignment-prototype-v7
 python -m http.server 8080
 ```
 
@@ -16,79 +16,83 @@ Then open `http://localhost:8080`.
 - `index.html` — clean, read-only team view
 - `manage.html` — supervisor / manager console
 
-No packages or database are required. State is stored in the browser's localStorage for prototype testing.
+No packages or database are required. Prototype state is stored in browser localStorage.
 
-## v6 additions
+## v7 additions
 
-### Daily Plan engine
-The staffing calendar now generates date-aware coverage windows based on actual engineer start/end times. A normal day creates:
+### Full operational roster
+The staffing calendar now contains the supplied 53-person roster plus three people retained from the working prototype because they were not present in the latest roster table: Youssef, Bryan, and Ola.
 
-- 6:00 AM–12:00 PM — morning owns full site coverage
-- 12:00 PM–4:00 PM — morning/midday workload targets approximately 60/40
-- 4:00 PM–8:00 PM — midday owns full site coverage
+The current Weekend coverage identities were reconciled to the roster where possible, including:
 
-Half days, late starts, early departures, and 12-hour shifts automatically create additional boundaries and handoffs.
+- Ryan Jackson — Weekend Day TSA
+- Ryan Mine — separate Weekday Mid Sr TSE
+- Garret Bishop — Weekend Mid TCE
+- Chad Cruz Jr., Bronson Wong, Carolyn Shin, David Lewis, Joshua Benson, Cameron McCreery, and Krysztof Capuras
 
-### Preview + Apply
-Supervisor staffing changes generate a candidate Daily Plan. The console compares it with the currently applied plan and shows how many site-window and TSA-window assignments would change before publishing it.
+### Named shifts and supervisors
+The organization layer now includes:
 
-### Coverage Health
-The Daily Plan checks:
+- Weekday Morning — Matthew Weimer (TSS)
+- Weekday Mid — Chaitanya Jagarapu (TSS)
+- Weekday Night — Oluwafemi Okediran (TSS)
+- Weekend Day — Christopher (derived from the roster Manager column)
+- Weekend Mid — Stephen Parker (TSS)
+- Weekend Night — Guillermo Rodriguez (TSS)
+- Commissioning — Michael Westfield (Manager)
+- Leader — Brian shown as the leadership supervisor because Tony Rodriguez and Michael Westfield both list Brian as manager
+- Unassigned — Andrea Capuras remains here because no shift was supplied
 
-- full site coverage in every generated window
-- TSA availability for every working engineer
-- overlap workload split
-- assignment-lock compliance
-- no-engineer coverage gaps
+The original Manager value is also preserved per person, even when it differs from the shift supervisor.
 
-### Dynamic handoffs
-The console lists site and TSA handoffs at each staffing boundary rather than assuming every transition happens exactly at noon or 4 PM.
+### Shift Setup
+The supervisor console has a Shift Setup section. Default start/end times can be configured for each operational shift without editing code.
 
-### Assignment locks
-Supervisors can configure locked site-to-engineer relationships. `BRK - 6020 → Carolyn` is seeded as the first lock. A lock is honored only while the owner is actually available; once the owner leaves, the Daily Plan creates a real handoff instead of leaving the site uncovered.
+Known defaults are seeded only where previously established:
 
-### Scenario Mode
-Scenario Mode makes temporary staffing, vacation, TSA, note, and assignment changes without publishing them to localStorage. Use **Apply scenario & plan** to commit the scenario, or **Discard scenario** to return to the live state.
+- Weekend Day: 6:00 AM–4:00 PM
+- Weekend Mid: 12:00 PM–8:00 PM
 
-### Undo + change history
-Committed supervisor changes maintain an in-session Undo stack and a small persistent recent-change log.
+Other shifts intentionally begin with **Hours not configured** rather than guessed schedules.
 
-### Daily notes
-Each date supports:
+### Overnight shifts
+Shift defaults and individual daily exceptions support crossing midnight. For example, `8:00 PM → 6:00 AM` is treated as a 10-hour shift.
 
-- a general team note
-- person-specific supervisor notes
+### Team-facing organization view
+Employees can now:
 
-The team-facing assignment view shows relevant notes.
+- select anyone in the full roster
+- see their operational shift
+- see their listed manager
+- see their shift supervisor
+- see configured default hours and date-specific exceptions
+- see a Shift Supervisors directory
 
-### Availability status
-In addition to shift start/end and Off/Vacation, a person can be marked:
+People whose shifts do not yet participate in the 38-site assignment engine still get a useful roster/schedule profile instead of a fake site assignment.
 
-- Working
-- Training
-- Meeting
-- Unavailable
+## Existing v6 functionality retained
 
-Training, Meeting, and Unavailable remove that person from generated coverage for the displayed shift. For a partial-day event, adjust the person's working start/end time and add a note describing the exception.
+- 38 workbook sites and 1,926-ticket workload model
+- Weekend Day full coverage and Weekend Mid takeover model
+- approximately 60/40 workload split during the current 12–4 overlap
+- vacation-based rebalance
+- configurable site locks, including BRK → Carolyn
+- TSA support and fallback for the current coverage teams
+- date-aware Daily Plans
+- preview/apply workflow
+- Coverage Health
+- dynamic handoffs
+- Scenario Mode
+- Undo and recent change history
+- daily notes and availability statuses
+- historical fairness tracking
+- read-only team assignment page
 
-### Historical fairness
-Each applied Daily Plan stores ticket-weighted coverage-hours by engineer. The supervisor console shows Today / 7-day / 30-day totals. This is a planning fairness proxy based on the workbook's 30-day ticket volume, not actual ticket production.
+## Important current boundary
 
-### Team view
-The employee page now prioritizes the applied Daily Plan and shows each engineer's actual coverage windows, sites, workload weight, and TSA for that period. TSAs see the engineers they support by generated time window.
+The new shifts are now part of the **staffing and organizational calendar**, but the 38 existing sites are still intentionally assigned only through the validated Weekend Day / Weekend Mid coverage engine. We have not invented site ownership, workload targets, or TSA rules for the newly added shifts.
 
-## Existing rules retained
-
-- 38 workbook sites
-- ticket workload sourced from the workbook's second sheet
-- morning full coverage
-- approximately 60/40 morning/midday workload during overlap
-- vacations automatically rebalance baseline sites and TSA support
-- Carolyn/BRK protection, now represented as a configurable lock
-- morning and midday TCE/TSE roles
-- Ryan + Amin morning TSAs; Ola midday TSA
-- cross-shift TSA pairings and fallbacks
-- duplicate and missing-site diagnostics
+That gives us a safe next step: define which site pool each additional shift participates in, its handoff relationship, and its workload target before connecting it to automatic Daily Plan assignment.
 
 ## Tests
 
@@ -98,4 +102,4 @@ Run:
 node tests.js
 ```
 
-The v6 test suite covers the original site/TSA logic plus daily windows, 60/40 dynamic overlap, BRK lock handoff behavior, half days, availability states, plan staleness, notes, configurable locks, and fairness-history recording.
+The v7 tests cover the original assignment/TSA/Daily Plan behavior plus full-roster loading, shift-supervisor mapping, unconfigured default hours, shift-default editing, identity separation for the two Ryans, and overnight shifts.

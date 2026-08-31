@@ -319,3 +319,13 @@
 .daily-window-sites span { background:#eef3fb; border-radius:6px; padding:4px 6px; font-size:10px; font-weight:750; color:#39577f; }
 .team-note { background:#fffdf7; border-color:#eadcae; }
 .team-note p { margin:5px 0 0; color:#6a5b2b; }
+
+/* v7 shift leadership */
+.shift-leads-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:9px; }
+.shift-lead-card { border:1px solid #dfe5ee; border-radius:11px; padding:11px 12px; background:#fafbfc; min-width:0; }
+.shift-lead-card span,.shift-lead-card strong,.shift-lead-card small { display:block; }
+.shift-lead-card span { color:#7a8798; font-size:9px; font-weight:900; text-transform:uppercase; letter-spacing:.04em; }
+.shift-lead-card strong { margin-top:4px; font-size:12px; }
+.shift-lead-card small { margin-top:3px; color:#7a8798; font-size:9px; }
+@media (max-width:900px){.shift-leads-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media (max-width:480px){.shift-leads-grid{grid-template-columns:1fr;}}

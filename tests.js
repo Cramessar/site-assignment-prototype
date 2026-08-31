@@ -10,7 +10,7 @@ assert.deepStrictEqual(seed.people.filter(p => p.vacation).map(p => p.name).sort
 assert.deepStrictEqual(seed.supportAdmins.map(a => a.name).sort(), ['Amin', 'Ola', 'Ryan'], 'Expected three TSAs');
 assert.strictEqual(seed.people.find(p => p.name === 'Youssef').role, 'tce');
 assert.strictEqual(seed.people.find(p => p.name === 'Carolyn').role, 'tse');
-assert.strictEqual(seed.people.find(p => p.name === 'Garett').role, 'tce');
+assert.strictEqual(seed.people.find(p => p.name === 'Garret').role, 'tce');
 
 const balanced = L.rebalanceAssignments(seed);
 const d = L.diagnostics(balanced);
@@ -28,6 +28,23 @@ const morningOverlapLoads = L.peopleForShift(balanced, 'morning', true).map(p =>
 const midOverlapLoads = L.peopleForShift(balanced, 'mid', true).map(p => L.personStats(balanced, p.id, 'midday').ticketLoad);
 assert.ok(Math.max(...morningOverlapLoads) - Math.min(...morningOverlapLoads) <= 10, 'Active morning overlap loads should be tightly balanced');
 assert.ok(Math.max(...midOverlapLoads) - Math.min(...midOverlapLoads) <= 10, 'Active midday loads should be tightly balanced');
+
+// v7 organization layer: full roster, named shifts, supervisors, and unconfigured-hour safety.
+assert.strictEqual(S.allStaff(seed).length, 56, 'Expected 53 supplied roster people plus Youssef, Bryan, and Ola retained from the prototype');
+assert.strictEqual(seed.rosterMeta.latestRosterCount, 53, 'Expected 53 rows in the supplied roster');
+assert.strictEqual(S.shiftDefinition(seed, 'weekday-morning').supervisorName, 'Matthew Weimer');
+assert.strictEqual(S.shiftDefinition(seed, 'weekday-mid').supervisorName, 'Chaitanya Jagarapu');
+assert.strictEqual(S.shiftDefinition(seed, 'weekday-night').supervisorName, 'Oluwafemi Okediran');
+assert.strictEqual(S.shiftDefinition(seed, 'weekend-day').supervisorName, 'Christopher');
+assert.strictEqual(S.shiftDefinition(seed, 'weekend-mid').supervisorName, 'Stephen Parker');
+assert.strictEqual(S.shiftDefinition(seed, 'weekend-night').supervisorName, 'Guillermo Rodriguez');
+assert.ok(S.allStaff(seed).some(p => p.fullName === 'Ryan Jackson' && p.role === 'tsa'), 'Weekend Day Ryan should resolve to Ryan Jackson');
+assert.ok(S.allStaff(seed).some(p => p.fullName === 'Ryan Mine' && p.operationalShiftId === 'weekday-mid'), 'Ryan Mine must remain a separate Weekday Mid employee');
+assert.strictEqual(S.getShift(seed, 'roster-matthew-weimer', '2026-08-31').unconfigured, true, 'Unknown Weekday Morning hours should not be guessed');
+const withWeekdayHours = S.setShiftDefault(seed, 'weekday-morning', '06:00', '16:00');
+assert.strictEqual(S.getShift(withWeekdayHours, 'roster-matthew-weimer', '2026-08-31').durationMinutes, 600, 'Configured shift defaults should immediately schedule that roster');
+const withNightHours = S.setShiftDefault(seed, 'weekend-night', '20:00', '06:00');
+assert.strictEqual(S.getShift(withNightHours, 'roster-kevin-mitchell', '2026-08-31').durationMinutes, 600, 'Overnight shift defaults should cross midnight correctly');
 
 // TSA layer: every active engineer gets exactly one primary pairing and full real-time coverage.
 const td = L.tsaDiagnostics(balanced);
@@ -180,4 +197,4 @@ assert.ok(DP.assignmentLocks(extraLock).some(x => x.personId === 'morning-chad' 
 const extraLockPlan = DP.generatePlan(extraLock, scheduleDate);
 assert.ok(extraLockPlan.windows.filter(w=>w.activeEngineers.includes('morning-chad')).every(w=>w.siteOwners['DOUG-6010']==='morning-chad'), 'Configurable lock should hold while owner is available');
 
-console.log('All prototype v6 assignment, TSA, schedule, and Daily Plan tests passed.');
+console.log('All prototype v7 roster, shift, assignment, TSA, schedule, and Daily Plan tests passed.');

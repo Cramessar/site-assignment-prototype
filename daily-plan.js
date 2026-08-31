@@ -41,7 +41,7 @@
   }
 
   function scheduleFingerprint(state, dateKey) {
-    const rows = S.allStaff(state).map(p => {
+    const rows = [...(state.people || []), ...(state.supportAdmins || [])].map(p => {
       const shift = S.getShift(state, p.id, dateKey);
       return [p.id, shift.start, shift.end, shift.off, shift.vacation, shift.coverageStatus || 'working'].join(':');
     });

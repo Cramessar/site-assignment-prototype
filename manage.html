@@ -31,6 +31,21 @@
       <strong>Prototype mode:</strong> changes save in this browser only. Once the assignment workflow feels right, this can be connected to a shared database for multiple supervisors.
     </section>
 
+
+    <section class="panel" aria-label="Shift setup and supervisors">
+      <div class="panel-heading">
+        <div>
+          <div class="eyebrow">Organization</div>
+          <h2>Shift setup & supervisors</h2>
+          <p>The full roster is grouped by operational shift. Configure default hours here; individual daily exceptions still belong in the calendar below.</p>
+        </div>
+        <div id="rosterCountBadge"></div>
+      </div>
+      <div id="shiftSetup" class="shift-setup-grid"></div>
+      <div class="notice compact"><strong>Known defaults:</strong> Weekend Day is 6am–4pm and Weekend Mid is 12pm–8pm. Other shift hours were not supplied, so they start as unconfigured rather than guessed. Overnight defaults are supported.</div>
+      <div class="notice compact"><strong>Roster reconciliation:</strong> Youssef, Bryan, and Ola are retained from the working prototype because they were not in the latest roster table. Christopher is shown as Weekend Day supervisor from the Manager column even though no Christopher row was supplied. Andrea Capuras remains Unassigned until a shift is provided.</div>
+    </section>
+
     <section class="panel schedule-shell" aria-label="Daily staffing calendar">
       <div class="panel-heading">
         <div>
@@ -131,9 +146,9 @@
     <section class="panel">
       <div class="panel-heading">
         <div>
-          <div class="eyebrow">Shift 1</div>
-          <h2>Morning team</h2>
-          <p>6am–12pm: morning owns complete coverage for all 38 sites. At noon, designated sites hand off to midday.</p>
+          <div class="eyebrow">Current site coverage • Shift 1</div>
+          <h2>Weekend Day team</h2>
+          <p>6am–12pm: Weekend Day owns complete coverage for all 38 sites. At noon, designated sites hand off to Weekend Mid.</p>
         </div>
         <div id="morningBadge"></div>
       </div>
@@ -144,9 +159,9 @@
     <section class="panel">
       <div class="panel-heading">
         <div>
-          <div class="eyebrow">Shift 2</div>
-          <h2>Midday takeover</h2>
-          <p>12pm–4pm: target roughly 40% of ticket workload on midday and 60% retained by morning.</p>
+          <div class="eyebrow">Current site coverage • Shift 2</div>
+          <h2>Weekend Mid takeover</h2>
+          <p>12pm–4pm: target roughly 40% of ticket workload on Weekend Mid and 60% retained by Weekend Day.</p>
         </div>
         <div id="midBadge"></div>
       </div>
@@ -160,7 +175,7 @@
         <div>
           <div class="eyebrow">Support layer</div>
           <h2>Technical Support Administrator assignments</h2>
-          <p>Ryan and Amin cover 6am–4pm; Ola covers 12pm–8pm. Primary pairings are mixed across both engineer shifts during 12–4, with automatic shift fallback before noon and after 4pm.</p>
+          <p>Ryan Jackson and Amin Abedelmajid cover Weekend Day; Ola remains the Weekend Mid TSA from the existing prototype. Primary pairings stay mixed across the two current site-coverage shifts during overlap.</p>
         </div>
         <div id="tsaBadge"></div>
       </div>
