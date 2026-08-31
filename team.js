@@ -1,9 +1,12 @@
 (() => {
   const SEED = SITE_ASSIGNMENT_SEED;
   const L = SiteCoverageLogic;
+  const S = SiteScheduleLogic;
+  const SV = SiteScheduleView;
   const STORAGE_KEY = 'site-coverage-manager-v3';
   const PERSON_KEY = 'site-coverage-team-person';
   let state = loadState();
+  let scheduleDateKey = SV.todayKey();
 
   const $ = id => document.getElementById(id);
   const esc = value => String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
@@ -51,6 +54,9 @@
   }
 
   function profileHeader(person) {
+    const dailyShift = S.getShift(state, person.id, scheduleDateKey);
+    const statusClass = person.vacation || dailyShift.off ? 'vacation' : '';
+    const statusText = person.vacation ? 'On vacation' : dailyShift.off ? 'Not scheduled' : 'Scheduled';
     return `<div class="profile-banner">
       <div>
         <div class="profile-name-row">
@@ -58,8 +64,9 @@
           <span class="role-badge ${person.role === 'tsa' ? 'tsa' : ''}">${esc(roleShort(person.role))}</span>
         </div>
         <div class="profile-meta">${esc(roleLabel(person.role))} • ${esc(shiftLabel(person.shift))}</div>
+        ${SV.personScheduleHTML(state, person.id, scheduleDateKey)}
       </div>
-      <div class="profile-status ${person.vacation ? 'vacation' : ''}"><i></i>${person.vacation ? 'On vacation' : 'Active today'}</div>
+      <div class="profile-status ${statusClass}"><i></i>${esc(statusText)}</div>
     </div>`;
   }
 
@@ -183,6 +190,14 @@
     const url = new URL(window.location.href);
     url.searchParams.set('person', person.id);
     history.replaceState(null, '', url);
+    renderTeamSchedule();
+  }
+
+  function renderTeamSchedule() {
+    const selected = $('personSelect').value || '';
+    $('scheduleDate').value = scheduleDateKey;
+    $('scheduleSummary').innerHTML = SV.summaryHTML(state, scheduleDateKey);
+    $('scheduleBoard').innerHTML = SV.boardHTML(state, scheduleDateKey, { editable: false, selectedPersonId: selected });
   }
 
   function renderDirectory() {
@@ -209,6 +224,7 @@
     const selected = $('personSelect').value;
     state = loadState();
     renderPicker();
+    renderTeamSchedule();
     renderDirectory();
     renderFooter();
     if (selected && allPeople().some(p => p.id === selected)) {
@@ -216,6 +232,32 @@
       renderSelected(selected);
     }
   }
+
+  $('scheduleDate').addEventListener('change', e => {
+    if (!S.isDateKey(e.target.value)) return;
+    scheduleDateKey = e.target.value;
+    renderTeamSchedule();
+    const selected = $('personSelect').value;
+    if (selected) renderSelected(selected);
+  });
+  $('schedulePrevDay').addEventListener('click', () => {
+    scheduleDateKey = SV.addDays(scheduleDateKey, -1);
+    renderTeamSchedule();
+    const selected = $('personSelect').value;
+    if (selected) renderSelected(selected);
+  });
+  $('scheduleNextDay').addEventListener('click', () => {
+    scheduleDateKey = SV.addDays(scheduleDateKey, 1);
+    renderTeamSchedule();
+    const selected = $('personSelect').value;
+    if (selected) renderSelected(selected);
+  });
+  $('scheduleToday').addEventListener('click', () => {
+    scheduleDateKey = SV.todayKey();
+    renderTeamSchedule();
+    const selected = $('personSelect').value;
+    if (selected) renderSelected(selected);
+  });
 
   $('personSelect').addEventListener('change', e => renderSelected(e.target.value));
   $('teamDirectory').addEventListener('click', e => {
@@ -231,6 +273,7 @@
   window.addEventListener('focus', refreshFromStorage);
 
   renderPicker();
+  renderTeamSchedule();
   renderDirectory();
   renderFooter();
 

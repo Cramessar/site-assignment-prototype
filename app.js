@@ -1,9 +1,12 @@
 (() => {
   const SEED = SITE_ASSIGNMENT_SEED;
   const L = SiteCoverageLogic;
+  const S = SiteScheduleLogic;
+  const SV = SiteScheduleView;
   const STORAGE_KEY = 'site-coverage-manager-v3';
   let state = loadState();
   let searchTerm = '';
+  let scheduleDateKey = SV.todayKey();
 
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
@@ -276,8 +279,16 @@
     }).join('');
   }
 
+  function renderSchedule() {
+    $('scheduleDate').value = scheduleDateKey;
+    $('scheduleDayLabel').textContent = SV.formatDateLabel(scheduleDateKey);
+    $('scheduleSummary').innerHTML = SV.summaryHTML(state, scheduleDateKey);
+    $('scheduleBoard').innerHTML = SV.boardHTML(state, scheduleDateKey, { editable: true });
+  }
+
   function render() {
     renderSummary();
+    renderSchedule();
     renderDiagnostics();
     renderPools();
     renderTeams();
@@ -285,6 +296,34 @@
     renderWorkload();
     renderTable();
     wireDynamicEvents();
+  }
+
+  function wireScheduleEvents() {
+document.querySelectorAll('[data-schedule-start], [data-schedule-end]').forEach(input => input.addEventListener('change', () => {
+  const personId = input.dataset.scheduleStart || input.dataset.scheduleEnd;
+  const editor = document.querySelector(`[data-schedule-editor="${personId}"]`);
+  const start = editor?.querySelector('[data-schedule-start]')?.value;
+  const end = editor?.querySelector('[data-schedule-end]')?.value;
+  if (!start || !end || S.timeToMinutes(end) <= S.timeToMinutes(start)) {
+    toast('End time must be later than start time');
+    return;
+  }
+  const person = S.staffById(state, personId);
+  setState(S.setShift(state, personId, scheduleDateKey, start, end), `${person.name} • ${SV.formatDateLabel(scheduleDateKey)} updated to ${S.formatTime(start)}–${S.formatTime(end)}`);
+}));
+
+document.querySelectorAll('[data-schedule-off]').forEach(btn => btn.addEventListener('click', () => {
+  const personId = btn.dataset.scheduleOff;
+  const person = S.staffById(state, personId);
+  const current = S.getShift(state, personId, scheduleDateKey);
+  setState(S.setOff(state, personId, scheduleDateKey, !current.off), current.off ? `${person.name} restored to default shift` : `${person.name} marked off for ${SV.formatDateLabel(scheduleDateKey)}`);
+}));
+
+document.querySelectorAll('[data-schedule-reset]').forEach(btn => btn.addEventListener('click', () => {
+  const personId = btn.dataset.scheduleReset;
+  const person = S.staffById(state, personId);
+  setState(S.clearOverride(state, personId, scheduleDateKey), `${person.name}'s shift reset to default for ${SV.formatDateLabel(scheduleDateKey)}`);
+}));
   }
 
   function wireDynamicEvents() {
@@ -347,7 +386,37 @@
       const engineer = personById(btn.dataset.engineerId);
       setState(L.removeEngineerFromTsa(state, admin.id, engineer.id), `${engineer.name} removed from ${admin.name} • TSA coverage needs review`);
     }));
+
+    wireScheduleEvents();
   }
+
+  $('scheduleDate').addEventListener('change', e => {
+    if (!S.isDateKey(e.target.value)) return;
+    scheduleDateKey = e.target.value;
+    renderSchedule();
+    wireScheduleEvents();
+  });
+  $('schedulePrevDay').addEventListener('click', () => {
+    scheduleDateKey = SV.addDays(scheduleDateKey, -1);
+    renderSchedule();
+    wireScheduleEvents();
+  });
+  $('scheduleNextDay').addEventListener('click', () => {
+    scheduleDateKey = SV.addDays(scheduleDateKey, 1);
+    renderSchedule();
+    wireScheduleEvents();
+  });
+  $('scheduleToday').addEventListener('click', () => {
+    scheduleDateKey = SV.todayKey();
+    renderSchedule();
+    wireScheduleEvents();
+  });
+  $('scheduleResetDay').addEventListener('click', () => {
+    const stats = S.dayStats(state, scheduleDateKey);
+    if (!stats.exceptions) { toast('This day is already using the default shifts'); return; }
+    if (!confirm(`Reset all ${stats.exceptions} schedule exception${stats.exceptions === 1 ? '' : 's'} for ${SV.formatDateLabel(scheduleDateKey)}?`)) return;
+    setState(S.clearDay(state, scheduleDateKey), `Schedule reset to defaults for ${SV.formatDateLabel(scheduleDateKey)}`);
+  });
 
   $('rebalanceBtn').addEventListener('click', () => {
     setState(L.rebalanceAssignments(state), 'Site workload and TSA support rebalanced');

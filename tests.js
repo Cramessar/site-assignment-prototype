@@ -1,6 +1,7 @@
 const assert = require('assert');
 const seed = require('./data.js');
 const L = require('./logic.js');
+const S = require('./schedule.js');
 
 assert.strictEqual(seed.sites.length, 38, 'Expected 38 sites from workbook');
 assert.strictEqual(L.totalTickets(seed), 1926, 'Expected 1,926 tickets from workbook');
@@ -100,4 +101,41 @@ const olaOutDiag = L.tsaDiagnostics(olaOut);
 assert.deepStrictEqual(olaOutDiag.missingPrimary, [], 'Morning TSAs can absorb 12-4 primary pairings if Ola is out');
 assert.ok(olaOutDiag.uncoveredWindows.some(x => x.window === '4pm-8pm'), 'Without Ola, late midday TSA coverage should be flagged');
 
-console.log('All prototype v3 logic tests passed.');
+// Daily staffing calendar: defaults, exceptions, duration, overlap, and date isolation.
+const scheduleDate = '2026-08-31';
+const nextDate = '2026-09-01';
+const chadDefault = S.getShift(balanced, 'morning-chad', scheduleDate);
+assert.strictEqual(chadDefault.start, '06:00', 'Morning default should start at 6am');
+assert.strictEqual(chadDefault.end, '16:00', 'Morning default should end at 4pm');
+assert.strictEqual(chadDefault.durationMinutes, 600, 'Morning default should be a 10-hour shift');
+const cameronDefault = S.getShift(balanced, 'mid-cameron', scheduleDate);
+assert.strictEqual(cameronDefault.start, '12:00', 'Midday default should start at noon');
+assert.strictEqual(cameronDefault.end, '20:00', 'Midday default should end at 8pm');
+assert.strictEqual(S.overlapMinutes(chadDefault, cameronDefault), 240, 'Default cross-shift overlap should be four hours');
+
+const chadTwelve = S.setShift(balanced, 'morning-chad', scheduleDate, '06:00', '18:00');
+assert.strictEqual(S.getShift(chadTwelve, 'morning-chad', scheduleDate).durationMinutes, 720, '6am-6pm should show as a 12-hour day');
+assert.strictEqual(S.overlapMinutes(S.getShift(chadTwelve, 'morning-chad', scheduleDate), cameronDefault), 360, 'Extended morning day should overlap midday for six hours');
+assert.strictEqual(S.getShift(chadTwelve, 'morning-chad', nextDate).end, '16:00', 'Schedule exception must be date-specific');
+
+const joshHalf = S.setShift(balanced, 'morning-josh', scheduleDate, '06:00', '11:00');
+assert.strictEqual(S.getShift(joshHalf, 'morning-josh', scheduleDate).durationMinutes, 300, 'Half-day example should be five hours');
+assert.strictEqual(S.overlapMinutes(S.getShift(joshHalf, 'morning-josh', scheduleDate), cameronDefault), 0, 'A morning half day ending at 11 should not overlap midday');
+
+const garettOff = S.setOff(balanced, 'mid-garett', scheduleDate, true);
+assert.strictEqual(S.getShift(garettOff, 'mid-garett', scheduleDate).off, true, 'Daily Off should remove the shift bar for that date');
+assert.strictEqual(S.getShift(garettOff, 'mid-garett', nextDate).off, false, 'Daily Off should not affect the next day');
+const garettReset = S.clearOverride(garettOff, 'mid-garett', scheduleDate);
+assert.strictEqual(S.getShift(garettReset, 'mid-garett', scheduleDate).start, '12:00', 'Reset should restore the default midday shift');
+
+const dayStats = S.dayStats(balanced, scheduleDate);
+assert.strictEqual(dayStats.overlapMinutes, 240, 'Normal day should show a four-hour team overlap');
+assert.ok(dayStats.morningHours > dayStats.midHours, 'Current staffing should produce more total morning scheduled hours');
+assert.strictEqual(dayStats.exceptions, 0, 'Default schedule should not count as an exception');
+const exceptionStats = S.dayStats(chadTwelve, scheduleDate);
+assert.strictEqual(exceptionStats.exceptions, 1, 'A custom 12-hour day should count as one daily exception');
+
+assert.strictEqual(S.getShift(balanced, 'morning-david', scheduleDate).vacation, true, 'Vacation staff should appear as vacation on the calendar');
+assert.strictEqual(S.getShift(balanced, 'mid-bryan', scheduleDate).durationMinutes, 0, 'Vacation staff should have no scheduled hours');
+
+console.log('All prototype v5 logic and schedule tests passed.');

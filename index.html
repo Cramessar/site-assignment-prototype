@@ -7,6 +7,7 @@
   <title>Team Assignments</title>
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="team.css" />
+  <link rel="stylesheet" href="schedule.css" />
 </head>
 <body class="team-view-body">
   <header class="team-header">
@@ -37,6 +38,23 @@
       </label>
     </section>
 
+    <section class="team-card schedule-shell team-schedule-card" aria-label="Team schedule">
+      <div class="section-heading-simple">
+        <div>
+          <div class="eyebrow team-eyebrow">Staffing calendar</div>
+          <h2>Team schedule</h2>
+        </div>
+        <div class="schedule-date-controls">
+          <button id="schedulePrevDay" class="schedule-nav-btn" type="button" aria-label="Previous day">←</button>
+          <input id="scheduleDate" type="date" aria-label="Schedule date" />
+          <button id="scheduleNextDay" class="schedule-nav-btn" type="button" aria-label="Next day">→</button>
+          <button id="scheduleToday" class="schedule-nav-btn subtle" type="button">Today</button>
+        </div>
+      </div>
+      <div id="scheduleSummary" class="schedule-summary"></div>
+      <div id="scheduleBoard" class="schedule-board"></div>
+    </section>
+
     <section id="assignmentView" class="assignment-view" hidden></section>
 
     <section id="emptyState" class="empty-state">
@@ -64,6 +82,8 @@
 
   <script src="data.js"></script>
   <script src="logic.js"></script>
+  <script src="schedule.js"></script>
+  <script src="schedule-view.js"></script>
   <script src="team.js"></script>
 </body>
 </html>

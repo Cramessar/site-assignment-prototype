@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Site Coverage Manager</title>
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="schedule.css" />
 </head>
 <body>
   <header class="app-header">
@@ -26,6 +27,30 @@
 
     <section class="notice" id="prototypeNotice">
       <strong>Prototype mode:</strong> changes save in this browser only. Once the assignment workflow feels right, this can be connected to a shared database for multiple supervisors.
+    </section>
+
+    <section class="panel schedule-shell" aria-label="Daily staffing calendar">
+      <div class="panel-heading">
+        <div>
+          <div class="eyebrow">Daily staffing</div>
+          <h2>Shift calendar</h2>
+          <p>Adjust start/end times for 12-hour days, half days, late starts, or early departures. Changes are date-specific and appear on the team page.</p>
+        </div>
+      </div>
+      <div class="schedule-toolbar">
+        <div class="schedule-date-controls">
+          <button id="schedulePrevDay" class="schedule-nav-btn" type="button" aria-label="Previous day">←</button>
+          <input id="scheduleDate" type="date" aria-label="Schedule date" />
+          <button id="scheduleNextDay" class="schedule-nav-btn" type="button" aria-label="Next day">→</button>
+          <button id="scheduleToday" class="schedule-nav-btn subtle" type="button">Today</button>
+        </div>
+        <div class="schedule-date-controls">
+          <span id="scheduleDayLabel" class="schedule-day-label"></span>
+          <button id="scheduleResetDay" class="schedule-nav-btn subtle" type="button">Reset day to defaults</button>
+        </div>
+      </div>
+      <div id="scheduleSummary" class="schedule-summary"></div>
+      <div id="scheduleBoard" class="schedule-board"></div>
     </section>
 
     <section class="panel diagnostic-panel">
@@ -147,6 +172,8 @@
 
   <script src="data.js"></script>
   <script src="logic.js"></script>
+  <script src="schedule.js"></script>
+  <script src="schedule-view.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
