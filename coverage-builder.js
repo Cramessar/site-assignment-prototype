@@ -210,5 +210,79 @@
     return Object.entries(window.shiftLoads||{}).map(([id,load])=>({shiftId:id,name:shiftName(state,id),tickets:load,pct:load/total,engineers:window.activeEngineers.filter(pid=>shiftId(state,staffById(state,pid))===id).length})).sort((a,b)=>a.name.localeCompare(b.name));
   }
 
-  return {clone,isEngineer,isTsa,assignmentLocks,engineersForShift,tsasForShift,eligibleShifts,selectedPeople,windowsForDate,shiftShares,assignSites,assignTsas,scheduleFingerprint,generatePlan,health,handoffs,publishedPlan,isPlanStale,publishPlan,clearPublishedPlan,shiftLoadSummary};
+
+  function dateFromKey(dateKey){const [y,m,d]=String(dateKey||'').split('-').map(Number);return !y||!m||!d?null:new Date(y,m-1,d,12,0,0,0);}
+  function dateKey(date){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;}
+  function addDays(dateKeyValue,amount){const d=dateFromKey(dateKeyValue);if(!d)return dateKeyValue;d.setDate(d.getDate()+Number(amount||0));return dateKey(d);}
+  function datesBetween(startKey,endKey){const out=[];let cur=startKey;for(let i=0;i<14;i+=1){out.push(cur);if(cur===endKey)break;cur=addDays(cur,1);}return out;}
+  function operationalPeriod(state,dateKeyValue,shiftIds){
+    const selected=[...(shiftIds||[])].filter((x,i,a)=>a.indexOf(x)===i);
+    const activeDays=new Set();selected.forEach(id=>{const def=S.shiftDefinition(state,id);(def?.activeDays||[]).forEach(day=>activeDays.add(Number(day)));});
+    const selectedDate=dateFromKey(dateKeyValue);if(!selectedDate)return {startDate:dateKeyValue,endDate:dateKeyValue,dates:[dateKeyValue],label:'Selected day'};
+    if(!activeDays.size)return {startDate:dateKeyValue,endDate:dateKeyValue,dates:[dateKeyValue],label:'Selected day'};
+    if(activeDays.size===7){
+      const dow=selectedDate.getDay(),back=(dow+6)%7;const start=addDays(dateKeyValue,-back),end=addDays(start,6);
+      return {startDate:start,endDate:end,dates:datesBetween(start,end),label:'Operational week'};
+    }
+    let anchorKey=dateKeyValue;let currentDow=selectedDate.getDay();
+    if(!activeDays.has(currentDow)){for(let step=1;step<=6;step+=1){const candidate=addDays(dateKeyValue,step),d=dateFromKey(candidate);if(activeDays.has(d.getDay())){anchorKey=candidate;currentDow=d.getDay();break;}}}
+    let back=0,forward=0;
+    while(back<6){const d=dateFromKey(addDays(anchorKey,-(back+1)));if(!activeDays.has(d.getDay()))break;back+=1;}
+    while(forward<6){const d=dateFromKey(addDays(anchorKey,forward+1));if(!activeDays.has(d.getDay()))break;forward+=1;}
+    const start=addDays(anchorKey,-back),end=addDays(anchorKey,forward);
+    return {startDate:start,endDate:end,dates:datesBetween(start,end),label:'Operational week'};
+  }
+  function periodKey(state,dateKeyValue,shiftIds){const p=operationalPeriod(state,dateKeyValue,shiftIds),ids=[...(shiftIds||[])].sort().join('+');return `${p.startDate}--${p.endDate}--${ids}`;}
+  function templateDateForPeriod(state,period,shiftIds){
+    let best=period.startDate,bestCount=-1;
+    (period.dates||[]).forEach(day=>{const count=(shiftIds||[]).filter(id=>S.shiftActiveOnDate(state,id,day)).length;if(count>bestCount){best=day;bestCount=count;}});
+    return best;
+  }
+  function generateWeeklyPlan(state,dateKeyValue,shiftIds){
+    const selected=[...(shiftIds||[])].filter((id,i,a)=>a.indexOf(id)===i);
+    const period=operationalPeriod(state,dateKeyValue,selected);
+    const templateDate=templateDateForPeriod(state,period,selected);
+    const stableState=clone(state);stableState.scheduleOverrides={};
+    const base=generatePlan(stableState,templateDate,selected);
+    return {...base,type:'weekly-multi-shift',dateKey:dateKeyValue,templateDate,periodStart:period.startDate,periodEnd:period.endDate,periodDates:period.dates,periodKey:periodKey(state,dateKeyValue,selected),generatedAt:new Date().toISOString()};
+  }
+  function weeklyPlans(state){return state?.weeklyCoveragePlans&&typeof state.weeklyCoveragePlans==='object'?state.weeklyCoveragePlans:{};}
+  function weeklyPlansForDate(state,dateKeyValue){return Object.values(weeklyPlans(state)).filter(plan=>plan&&plan.periodStart<=dateKeyValue&&plan.periodEnd>=dateKeyValue).sort((a,b)=>String(b.publishedAt||b.generatedAt||'').localeCompare(String(a.publishedAt||a.generatedAt||'')));}
+  function publishedWeeklyPlan(state,dateKeyValue,shiftIds){
+    if(shiftIds?.length){const key=periodKey(state,dateKeyValue,shiftIds);return weeklyPlans(state)[key]||null;}
+    return weeklyPlansForDate(state,dateKeyValue)[0]||null;
+  }
+  function publishWeeklyPlan(state,plan){const next=clone(state);next.weeklyCoveragePlans=next.weeklyCoveragePlans||{};const copy=clone(plan);copy.publishedAt=new Date().toISOString();next.weeklyCoveragePlans[copy.periodKey]=copy;return next;}
+  function clearWeeklyPlan(state,planOrKey){const next=clone(state),key=typeof planOrKey==='string'?planOrKey:planOrKey?.periodKey;if(key&&next.weeklyCoveragePlans)delete next.weeklyCoveragePlans[key];return next;}
+  function weeklyPlanStale(state,plan){
+    if(!plan)return true;
+    const stable=clone(state);stable.scheduleOverrides={};
+    return plan.scheduleFingerprint!==scheduleFingerprint(stable,plan.templateDate||plan.periodStart,plan.selectedShiftIds||[]);
+  }
+
+  function planWindowSignature(plan){
+    return JSON.stringify((plan?.windows||[]).map(w=>({
+      start:w.start,end:w.end,
+      activeEngineers:[...(w.activeEngineers||[])].sort(),
+      activeAdmins:[...(w.activeAdmins||[])].sort(),
+      siteOwners:Object.entries(w.siteOwners||{}).sort((a,b)=>a[0].localeCompare(b[0])),
+      tsaByEngineer:Object.entries(w.tsaByEngineer||{}).sort((a,b)=>a[0].localeCompare(b[0]))
+    })));
+  }
+
+  function effectiveWeeklyPlan(state,plan,dateKeyValue){
+    if(!plan)return null;
+    const live=generatePlan(state,dateKeyValue,plan.selectedShiftIds||[]);
+    const adjusted=planWindowSignature(live)!==planWindowSignature(plan);
+    return {
+      ...clone(plan),
+      windows:live.windows,
+      effectiveDate:dateKeyValue,
+      dailyAdjusted:adjusted,
+      liveScheduleFingerprint:live.scheduleFingerprint,
+      type:'weekly-effective'
+    };
+  }
+
+  return {clone,isEngineer,isTsa,assignmentLocks,engineersForShift,tsasForShift,eligibleShifts,selectedPeople,windowsForDate,shiftShares,assignSites,assignTsas,scheduleFingerprint,generatePlan,health,handoffs,publishedPlan,isPlanStale,publishPlan,clearPublishedPlan,shiftLoadSummary,dateFromKey,dateKey,addDays,datesBetween,operationalPeriod,periodKey,templateDateForPeriod,generateWeeklyPlan,weeklyPlans,weeklyPlansForDate,publishedWeeklyPlan,publishWeeklyPlan,clearWeeklyPlan,weeklyPlanStale,planWindowSignature,effectiveWeeklyPlan};
 });

@@ -236,4 +236,53 @@ assert.ok(DP.assignmentLocks(extraLock).some(x => x.personId === 'morning-chad' 
 const extraLockPlan = DP.generatePlan(extraLock, scheduleDate);
 assert.ok(extraLockPlan.windows.filter(w=>w.activeEngineers.includes('morning-chad')).every(w=>w.siteOwners['DOUG-6010']==='morning-chad'), 'Configurable lock should hold while owner is available');
 
-console.log('All prototype v9 roster, configurable shift, multi-shift coverage, assignment, TSA, schedule, and Daily Plan tests passed.');
+console.log('All prototype v10 roster, configurable shift, multi-shift coverage, assignment, TSA, schedule, and Daily Plan tests passed.');
+
+// v10 weekly persistence and page-separation model.
+const weekendWeek = CB.operationalPeriod(seed, '2026-08-30', ['weekend-day','weekend-mid']);
+assert.strictEqual(weekendWeek.startDate, '2026-08-28', 'Weekend operational week should start Friday');
+assert.strictEqual(weekendWeek.endDate, '2026-08-31', 'Weekend operational week should end Monday');
+const weekdayWeek = CB.operationalPeriod(seed, '2026-09-02', ['weekday-morning','weekday-mid']);
+assert.strictEqual(weekdayWeek.startDate, '2026-08-31', 'Weekday Morning/Mid operational week should start Monday');
+assert.strictEqual(weekdayWeek.endDate, '2026-09-03', 'Weekday Morning/Mid operational week should end Thursday');
+const weekly = CB.generateWeeklyPlan(seed, '2026-08-30', ['weekend-day','weekend-mid']);
+assert.strictEqual(weekly.type, 'weekly-multi-shift');
+assert.strictEqual(weekly.periodStart, '2026-08-28');
+assert.strictEqual(weekly.periodEnd, '2026-08-31');
+assert.ok(CB.health(seed, weekly).ok, 'Weekly Weekend plan should cover all sites');
+const publishedWeeklyState = CB.publishWeeklyPlan(seed, weekly);
+assert.strictEqual(CB.weeklyPlansForDate(publishedWeeklyState, '2026-08-28').length, 1, 'Published weekly plan should be visible Friday');
+assert.strictEqual(CB.weeklyPlansForDate(publishedWeeklyState, '2026-08-31').length, 1, 'Published weekly plan should remain visible Monday');
+const weeklyWithHalfDay = S.setShift(publishedWeeklyState, 'morning-chad', '2026-08-30', '06:00', '11:00');
+assert.strictEqual(CB.weeklyPlanStale(weeklyWithHalfDay, weekly), false, 'A date-specific half-day should not rewrite or stale the weekly base assignment');
+const changedWeekendDefault = S.setShiftSchedule(publishedWeeklyState, 'weekend-day', '07:00', '17:00', [5,6,0,1]);
+assert.strictEqual(CB.weeklyPlanStale(changedWeekendDefault, weekly), true, 'Changing the normal shift schedule should mark the weekly assignment stale');
+
+console.log('All prototype v10 weekly persistence tests passed.');
+
+
+// v10.2 daily non-working statuses redistribute coverage without rewriting the stored weekly base plan.
+const sunday = '2026-08-30';
+const basePublished = CB.publishWeeklyPlan(seed, CB.generateWeeklyPlan(seed, sunday, ['weekend-day','weekend-mid']));
+const storedBase = CB.publishedWeeklyPlan(basePublished, sunday, ['weekend-day','weekend-mid']);
+const baseSignature = CB.planWindowSignature(storedBase);
+
+function assertPersonRedistributedForStatus(status) {
+  const changed = status === 'off'
+    ? S.setOff(basePublished, 'morning-chad', sunday, true)
+    : S.setCoverageStatus(basePublished, 'morning-chad', sunday, status);
+  const effective = CB.effectiveWeeklyPlan(changed, storedBase, sunday);
+  assert.ok(effective.dailyAdjusted, `${status} should create a date-specific adjusted coverage plan`);
+  assert.ok(effective.windows.every(w => !(w.activeEngineers || []).includes('morning-chad')), `${status} should remove Chad from active site coverage`);
+  assert.ok(effective.windows.every(w => Object.keys(w.siteOwners || {}).length === 38), `${status} should redistribute all 38 sites`);
+  assert.ok(effective.windows.every(w => !Object.values(w.siteOwners || {}).includes('morning-chad')), `${status} should move Chad's sites to working engineers`);
+  assert.strictEqual(CB.planWindowSignature(CB.publishedWeeklyPlan(changed, sunday, ['weekend-day','weekend-mid'])), baseSignature, `${status} must not mutate the stored weekly base assignment`);
+}
+['off','training','meeting','unavailable'].forEach(assertPersonRedistributedForStatus);
+
+const aminUnavailable = S.setCoverageStatus(basePublished, 'tsa-amin', sunday, 'unavailable');
+const tsaEffective = CB.effectiveWeeklyPlan(aminUnavailable, storedBase, sunday);
+assert.ok(tsaEffective.windows.every(w => !(w.activeAdmins || []).includes('tsa-amin')), 'Unavailable TSA should be removed from active TSA coverage');
+assert.ok(tsaEffective.windows.every(w => !Object.values(w.tsaByEngineer || {}).includes('tsa-amin')), 'Unavailable TSA responsibilities should be redistributed to working TSAs');
+
+console.log('All prototype v10.2 daily status redistribution tests passed.');

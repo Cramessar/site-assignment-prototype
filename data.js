@@ -4,7 +4,7 @@
   root.SITE_ASSIGNMENT_SEED = data;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   return {
-  "version": 9,
+  "version": 10,
   "sourceDate": "2026-08-31",
   "rules": {
     "overlapMorningTarget": 0.6,

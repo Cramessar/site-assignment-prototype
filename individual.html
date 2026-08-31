@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#102347" />
+  <title>Team Assignments</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="team.css" />
+  <link rel="stylesheet" href="schedule.css" />
+</head>
+<body class="team-view-body">
+  <header class="team-header">
+    <div class="team-header-inner">
+      <a class="brand" href="index.html" aria-label="Team assignments home">
+        <span class="brand-mark">SC</span>
+        <span>
+          <strong>Site Coverage</strong>
+          <small>Daily team assignments</small>
+        </span>
+      </a>
+      <a class="manager-link" href="manage.html">Supervisor view</a>
+    </div>
+  </header>
+
+  <main class="team-main">
+    <section class="welcome-card">
+      <div>
+        <div class="eyebrow team-eyebrow">Today's coverage</div>
+        <h1>Find your assignment</h1>
+        <p>Select your name to see your sites, TSA support, and handoff details for the day.</p>
+      </div>
+      <label class="person-picker">
+        <span>Your name</span>
+        <select id="personSelect" aria-label="Select your name">
+          <option value="">Choose your name…</option>
+        </select>
+      </label>
+    </section>
+
+    <section class="team-card schedule-shell team-schedule-card" aria-label="Team schedule">
+      <div class="section-heading-simple">
+        <div>
+          <div class="eyebrow team-eyebrow">Staffing calendar</div>
+          <h2>Team schedule</h2>
+        </div>
+        <div class="schedule-date-controls">
+          <button id="schedulePrevDay" class="schedule-nav-btn" type="button" aria-label="Previous day">←</button>
+          <input id="scheduleDate" type="date" aria-label="Schedule date" />
+          <button id="scheduleNextDay" class="schedule-nav-btn" type="button" aria-label="Next day">→</button>
+          <button id="scheduleToday" class="schedule-nav-btn subtle" type="button">Today</button>
+        </div>
+      </div>
+      <div id="scheduleSummary" class="schedule-summary"></div>
+      <div id="scheduleBoard" class="schedule-board"></div>
+    </section>
+
+
+    <section class="team-card" aria-label="Shift supervisors">
+      <div class="section-heading-simple">
+        <div>
+          <div class="eyebrow team-eyebrow">Organization</div>
+          <h2>Shift supervisors</h2>
+        </div>
+      </div>
+      <div id="shiftLeads" class="shift-leads-grid"></div>
+    </section>
+
+    <section id="assignmentView" class="assignment-view" hidden></section>
+
+    <section id="emptyState" class="empty-state">
+      <div class="empty-icon">↗</div>
+      <h2>Everything you need, one screen.</h2>
+      <p>Choose your name above. No spreadsheets, no hunting through a schedule, no archaeological dig through Teams messages.</p>
+    </section>
+
+    <section class="team-directory-section">
+      <div class="section-heading-simple">
+        <div>
+          <div class="eyebrow team-eyebrow">Team today</div>
+          <h2>Quick directory</h2>
+        </div>
+        <div id="coverageStatus" class="coverage-status"></div>
+      </div>
+      <div id="teamDirectory" class="team-directory"></div>
+    </section>
+  </main>
+
+  <footer class="team-footer">
+    <span>Assignments update from the supervisor coverage board.</span>
+    <span id="lastUpdated"></span>
+  </footer>
+
+  <script src="data.js"></script>
+  <script src="logic.js"></script>
+  <script src="schedule.js"></script>
+  <script src="schedule-view.js"></script>
+  <script src="daily-plan.js"></script>
+  <script src="coverage-builder.js"></script>
+  <script src="team.js"></script>
+</body>
+</html>

@@ -1,93 +1,64 @@
-# Site Coverage Manager — Prototype v9
+# Site Coverage Manager — Prototype v10.1
 
-A browser-based operations prototype for multi-shift staffing, site assignment, TSA support, daily scheduling, and workload-balanced handoffs.
+v10 separates the prototype into focused pages and changes site assignment publication from a daily plan to an **operational-week plan**.
 
-## Run it
+## Run locally
 
-Open `index.html` directly, or serve the folder locally:
+From PowerShell:
 
 ```powershell
-cd path\to\site-assignment-prototype-v9
+cd path\to\site-assignment-prototype-v10
 python -m http.server 8080
 ```
 
-Then open `http://localhost:8080`.
+Open `http://localhost:8080`.
 
-- `index.html` — read-only team view
-- `manage.html` — supervisor / manager console
+## Pages
 
-No packages or database are required. Prototype state is stored in browser localStorage.
+- `index.html` — **Weekly Site Assignments** (public/read-only). This is the main team page. It shows one compact table with engineers as rows, coverage windows as columns, site chips, handoff highlighting, and TSA support.
+- `calendar.html` — **Staffing Calendar** (public/read-only). Staffing is intentionally separate from site assignments.
+- `manage.html` — **Supervisor Coverage Builder**. Select one or more shifts, generate a stable operational-week plan, preview it, and publish it to the team.
+- `staffing.html` — **Staffing Editor**. Date-specific exceptions such as 12-hour days, half-days, late starts, early departures, Training/Meeting, or Off.
+- `organization.html` — **Organization & Shift Setup**. Configure default hours and active days for each operational shift.
 
-## v9 additions
+The previous all-in-one supervisor page is retained as `advanced.html` only as a reference while the prototype is being split apart.
 
-### Configurable shift schedules
-Every operational shift now has editable default hours **and active days**.
+## Weekly assignment behavior
 
-Seeded defaults:
+Site assignments are now published as a weekly base plan rather than regenerated every day.
 
-- Weekday Morning — 6:00 AM–4:00 PM, Monday–Thursday
-- Weekday Mid — 12:00 PM–8:00 PM, Monday–Thursday
-- Weekday Night — 8:00 PM–6:00 AM, Monday–Friday
-- Weekend Day — 6:00 AM–4:00 PM, Friday–Monday
-- Weekend Mid — 12:00 PM–8:00 PM, Friday–Monday
-- Weekend Night — 8:00 PM–6:00 AM, Friday–Monday
-- Commissioning — 9:00 AM–5:00 PM, Monday–Friday
-- Leadership — 9:00 AM–5:00 PM, Monday–Friday
+Examples with the current shift defaults:
 
-A supervisor can change both time and days from **Shift Setup & Supervisors**. Changes immediately affect calendar visibility and Coverage Builder eligibility.
+- Weekend Day + Weekend Mid: **Friday through Monday**
+- Weekday Morning + Weekday Mid: **Monday through Thursday**
+- Weekday Night: **Monday through Friday**
 
-Individual date-specific schedule exceptions still work, including scheduling someone on a day their shift is normally inactive.
+The operational period is derived from the active-day settings in Organization, so changing a shift's workdays changes future generated assignment periods.
 
-### Supervisor-based shift inheritance
-Andrea Capuras still has no explicit shift in the supplied roster, but because she reports to Guillermo Rodriguez she inherits the Weekend Night operational shift and its schedule.
+### Daily exceptions do not silently rewrite the week
 
-### Multi-shift Coverage Builder
-The supervisor console now has an on-demand Coverage Builder.
+A supervisor can still make a Sunday half-day or a Friday 12-hour exception in Staffing Editor. Those changes appear on the Staffing Calendar but the team's published weekly site assignment remains stable. This keeps the assignment list predictable for the team and makes unusual days an explicit supervisor exception instead of a surprise site reshuffle.
 
-For the selected calendar date, a supervisor can:
+Changing a normal shift default, vacation state, assignment rule, or workload data marks an existing weekly plan as needing regeneration.
 
-1. select one or more active operational shifts
-2. generate a preview
-3. review site coverage, TSA coverage, workload distribution, and handoffs
-4. publish that coverage plan to the team-facing page
+## Assignment table
 
-The builder supports Weekday, Weekend, Mid, Night, and Commissioning teams without maintaining separate assignment engines for each one.
+The public assignment table is designed around the original Excel workflow:
 
-### How generic site balancing works
-- Only TCE/TSE staff receive site ownership.
-- Shift supervisors and managers are excluded from site assignment.
-- TSAs are assigned as the support layer whenever they are scheduled in the selected coverage window.
-- Sites are weighted using the existing 30-day ticket volume.
-- Existing assignment locks are honored whenever the locked engineer is active in the selected shifts.
-- Weekend Day + Weekend Mid retains the approved ~60/40 ticket-workload rule during overlap.
-- Other shift combinations use active engineer headcount to establish shift-level workload share, which keeps per-person workload approximately equitable.
-- Selected shifts generate automatic time windows and handoffs from their actual start/end times.
-- Overnight shifts are supported.
+- one row per engineer
+- one column per generated coverage window
+- normal site chips = site stays with that engineer
+- orange site chips = site hands off in the next window
+- green site chips = engineer takes that site over in the current window
+- TSA coverage is shown in the final column and can change by window
 
-Example: selecting Weekend Mid (12 PM–8 PM) and Weekend Night (8 PM–6 AM) creates an automatic 8 PM handoff of the 38-site pool.
+Weekend Day + Weekend Mid still preserves the approved ~60/40 ticket-workload split during overlap. Other selected shift combinations balance workload using the active engineer count per shift and the 30-day site ticket weights.
 
-### Published team coverage
-A published multi-shift plan is date-specific. The team-facing page prefers that published plan and shows each participating engineer their site ownership and TSA by time window. TSAs see the engineers they are supporting in each window.
+## Persistence
 
-## Existing functionality retained
+The prototype still uses browser `localStorage`. v10 uses `site-coverage-manager-v10` and can migrate state from the v9 local-storage key on first load.
 
-- 38 sites and 1,926-ticket workload model
-- vacation-driven rebalancing for the original Weekend coverage team
-- Weekend Day / Weekend Mid baseline assignment board
-- configurable BRK → Carolyn assignment lock
-- TSA support assignments and fallback logic
-- daily staffing calendar
-- half days, extended shifts, days off, training, meetings, and unavailable status
-- date-aware Weekend Daily Plan
-- scenario mode
-- preview/apply workflow
-- coverage health
-- handoffs
-- undo/change history
-- daily notes
-- fairness history
-- full 57-person prototype roster including Christopher Ramessar and retained Youssef/Bryan/Ola
-- supervisor-highlighted calendar rows
+A shared backend/database is still required before multiple supervisors and team members on different computers can see the same live state.
 
 ## Tests
 
@@ -97,4 +68,19 @@ Run:
 node tests.js
 ```
 
-The v9 suite covers the original assignment/TSA/Daily Plan logic plus configurable active days, off-day schedule exceptions, supervisor-inherited shifts, Weekday coverage generation, Weekend 60/40 generation, Mid-to-Night handoffs, TSA participation, supervisor exclusion from site assignment, plan publication, and overnight schedules.
+Tests cover the original 38-site assignment engine, TSA logic, scheduling, configurable shift days/hours, multi-shift coverage, overnight shifts, supervisor inheritance, and v10 operational-week persistence.
+
+
+## v10.1 hotfix
+- Restored Vacation / Return from vacation controls in Staffing Editor.
+- Engineer vacations use the existing workload rebalance logic.
+- TSA vacations rebalance TSA support.
+- Directory-only roster members can also be marked on/off vacation.
+- Public Staffing Calendar remains read-only.
+
+
+## v10.2 hotfix — daily non-working redistribution
+
+The weekly assignment remains the stable source of truth, but the public Site Assignments page now applies the selected day's staffing state on top of that base plan. If an engineer is marked **Off**, **Unavailable**, **Training**, **Meeting**, or **Vacation**, that engineer is removed from active coverage for the affected day/window and their sites are redistributed among engineers who are actually working. TSA non-working statuses are handled the same way for support assignments.
+
+Date-specific schedule changes do not mutate the stored weekly plan. Returning the employee to Working/default hours automatically restores the normal weekly-base behavior for unaffected windows.

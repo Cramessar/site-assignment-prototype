@@ -5,7 +5,7 @@
   const SV = SiteScheduleView;
   const DP = DailyPlanLogic;
   const CB = MultiShiftCoverage;
-  const STORAGE_KEY = 'site-coverage-manager-v9';
+  const STORAGE_KEY = 'site-coverage-manager-v10';
   const PERSON_KEY = 'site-coverage-team-person';
   let state = DP.normalizeState(loadState());
   let scheduleDateKey = SV.todayKey();
