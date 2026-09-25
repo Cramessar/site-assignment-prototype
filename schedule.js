@@ -195,7 +195,7 @@
   function setCoverageStatus(state, personId, dateKey, coverageStatus) {
     const allowed=new Set(['working','training','meeting','unavailable','vacation']); const next=clone(state);
     if(!staffById(next,personId)||!isDateKey(dateKey)||!allowed.has(coverageStatus)) return next;
-    ensureOverrides(next,dateKey); const existing=next.scheduleOverrides[dateKey][personId]||{}; const base=defaultShiftForPerson(next,personId);
+    ensureOverrides(next,dateKey); const existing=next.scheduleOverrides[dateKey][personId]||{}; const base=recurringShiftForPerson(next,personId,dateKey)||defaultShiftForPerson(next,personId);
     next.scheduleOverrides[dateKey][personId]=coverageStatus==='vacation'
       ? {off:true,coverageStatus:'vacation'}
       : {...existing,start:existing.start||base?.start,end:existing.end||base?.end,off:false,coverageStatus};
