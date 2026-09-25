@@ -15,10 +15,10 @@
  }
  function render(){
    $('assignmentDate').value=dateKey;
-   $('outBanner').innerHTML=A.outBannerHTML(state,dateKey);
    const plans=planChoices();
    $('planSelect').innerHTML=plans.length?plans.map(p=>`<option value="${esc(p.periodKey)}">${esc((p.selectedShiftIds||[]).map(id=>S.shiftDefinition(state,id)?.name||id).join(' + '))} • ${esc(A.fmtRange(p.periodStart,p.periodEnd))}</option>`).join(''):'<option value="">No published plan for this date</option>';
    const plan=currentPlan();if(plan)$('planSelect').value=plan.periodKey;
+   $('outBanner').innerHTML=A.outBannerHTML(state,dateKey,{dates:plan?.periodDates||A.weekDateKeys(dateKey),shiftIds:plan?.selectedShiftIds||[]});
    renderSummary(plan);
    if(!plan){$('assignmentStatus').className='badge warning';$('assignmentStatus').textContent='No published week';$('assignmentTitle').textContent='Site assignments';$('assignmentSubtitle').textContent='A supervisor can generate and publish a weekly plan from Supervisor Builder.';$('assignmentLegend').innerHTML='';$('assignmentTable').innerHTML='<div class="empty-panel"><strong>No weekly site assignment has been published for this date.</strong><span>Use Supervisor Builder to create one.</span></div>';$('handoffStrip').innerHTML='';return;}
    const effective=C.effectiveWeeklyPlan(state,plan,dateKey);
@@ -32,8 +32,13 @@
      : `Operational week ${A.fmtRange(plan.periodStart,plan.periodEnd)}. Base site ownership remains consistent across the week.`;
    $('assignmentLegend').innerHTML=V.legend();$('assignmentTable').innerHTML=V.table(state,effective);$('handoffStrip').innerHTML=V.handoffStrip(state,effective);
  }
- $('assignmentDate').addEventListener('change',e=>{dateKey=e.target.value||dateKey;selectedKey='';render();});
+ async function hydrateAndRender(){
+   const dates=A.weekDateKeys(dateKey);
+   state=await A.hydrateScheduleData(state,dates[0],dates[dates.length-1]);
+   render();
+ }
+ $('assignmentDate').addEventListener('change',e=>{dateKey=e.target.value||dateKey;selectedKey='';hydrateAndRender();});
  $('planSelect').addEventListener('change',e=>{selectedKey=e.target.value;render();});
- window.addEventListener('storage',()=>{state=A.load();render();});
- render();
+ window.addEventListener('storage',()=>{state=A.load();hydrateAndRender();});
+ hydrateAndRender();
 })();
