@@ -73,6 +73,19 @@ class SiteWorkloadMetric(Base):
 
 
 
+class ShiftScheduleDefault(Base):
+    __tablename__ = "shift_schedule_defaults"
+
+    shift_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    default_start: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    default_end: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    active_iso_weekdays: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class StaffScheduleProfile(Base):
     __tablename__ = "staff_schedule_profiles"
 
