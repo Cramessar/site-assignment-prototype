@@ -28,22 +28,22 @@
 
   function activeEngineerIds(state, dateKey, start, end) {
     return (state.people || []).filter(person => {
-      const interval = S.intervalForCoverage(S.getShift(state, person.id, dateKey));
-      return interval && interval.start <= start && interval.end >= end;
+      const intervals = S.intervalsForCoverage(S.getShift(state, person.id, dateKey));
+      return intervals.some(interval => interval.start <= start && interval.end >= end);
     }).map(p => p.id);
   }
 
   function activeAdminIds(state, dateKey, start, end) {
     return (state.supportAdmins || []).filter(admin => {
-      const interval = S.intervalForCoverage(S.getShift(state, admin.id, dateKey));
-      return interval && interval.start <= start && interval.end >= end;
+      const intervals = S.intervalsForCoverage(S.getShift(state, admin.id, dateKey));
+      return intervals.some(interval => interval.start <= start && interval.end >= end);
     }).map(a => a.id);
   }
 
   function scheduleFingerprint(state, dateKey) {
     const rows = [...(state.people || []), ...(state.supportAdmins || [])].map(p => {
       const shift = S.getShift(state, p.id, dateKey);
-      return [p.id, shift.start, shift.end, shift.off, shift.vacation, shift.coverageStatus || 'working'].join(':');
+      return [p.id, JSON.stringify(shift.segments || []), shift.start, shift.end, shift.off, shift.vacation, shift.coverageStatus || 'working'].join(':');
     });
     const locks = assignmentLocks(state).map(x => `${x.personId}:${x.siteId}`).sort();
     return JSON.stringify({ rows, locks, target: L.rules(state).overlapMidTarget });
@@ -53,11 +53,11 @@
     const range = operationalRange(state);
     const boundaries = new Set([range.start, range.end]);
     (state.people || []).forEach(person => {
-      const interval = S.intervalForShift(S.getShift(state, person.id, dateKey));
-      if (!interval) return;
-      if (interval.end <= range.start || interval.start >= range.end) return;
-      boundaries.add(Math.max(range.start, interval.start));
-      boundaries.add(Math.min(range.end, interval.end));
+      S.intervalsForShift(S.getShift(state, person.id, dateKey)).forEach(interval => {
+        if (interval.end <= range.start || interval.start >= range.end) return;
+        boundaries.add(Math.max(range.start, interval.start));
+        boundaries.add(Math.min(range.end, interval.end));
+      });
     });
     const points = Array.from(boundaries).sort((a, b) => a - b);
     const windows = [];
