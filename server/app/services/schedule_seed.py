@@ -37,7 +37,7 @@ def _matches_default(row: ShiftScheduleDefault, expected: tuple[str, str, list[i
     return (
         row.default_start == start
         and row.default_end == end
-        and list(row.active_iso_weekdays or []) == days
+        and sorted(int(day) for day in (row.active_iso_weekdays or [])) == sorted(int(day) for day in days)
     )
 
 
