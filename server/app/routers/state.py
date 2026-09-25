@@ -21,11 +21,20 @@ def get_state(db: Session = Depends(get_db), _: CurrentUser = Depends(get_curren
 
 @router.put("/state", response_model=WorkspaceStateResponse)
 def update_state(body: WorkspaceStateUpdate, db: Session = Depends(get_db), user: CurrentUser = Depends(require_supervisor)) -> WorkspaceStateResponse:
-    with db.begin():
+    try:
         row = db.scalar(select(WorkspaceState).where(WorkspaceState.id == 1).with_for_update())
         current_revision = row.revision if row else 0
         if body.expected_revision != current_revision:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail={"message":"State changed since you loaded it","expected_revision":body.expected_revision,"current_revision":current_revision})
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "message": "State changed since you loaded it",
+                    "expected_revision": body.expected_revision,
+                    "current_revision": current_revision,
+                },
+            )
+
         new_revision = current_revision + 1
         if row is None:
             row = WorkspaceState(id=1, revision=new_revision, payload=body.payload, updated_by=user.email)
@@ -34,9 +43,27 @@ def update_state(body: WorkspaceStateUpdate, db: Session = Depends(get_db), user
             row.revision = new_revision
             row.payload = body.payload
             row.updated_by = user.email
-        db.add(WorkspaceRevision(revision=new_revision, actor=user.email, action="state.update", note=body.note, payload=body.payload))
-    db.refresh(row)
-    return WorkspaceStateResponse(revision=row.revision, payload=row.payload, updated_by=row.updated_by, updated_at=row.updated_at)
+
+        db.add(WorkspaceRevision(
+            revision=new_revision,
+            actor=user.email,
+            action="state.update",
+            note=body.note,
+            payload=body.payload,
+        ))
+        db.commit()
+        db.refresh(row)
+        return WorkspaceStateResponse(
+            revision=row.revision,
+            payload=row.payload,
+            updated_by=row.updated_by,
+            updated_at=row.updated_at,
+        )
+    except HTTPException:
+        raise
+    except Exception:
+        db.rollback()
+        raise
 
 @router.get("/state/history", response_model=list[WorkspaceRevisionSummary])
 def state_history(limit: int = Query(default=50, ge=1, le=200), db: Session = Depends(get_db), _: CurrentUser = Depends(get_current_user)) -> list[WorkspaceRevisionSummary]:
