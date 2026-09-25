@@ -43,6 +43,7 @@
   }
   function coverageGroup(person) { return person?.coverageGroup || person?.shift || null; }
   function dateFromKey(dateKey) { const [y,m,d] = String(dateKey || '').split('-').map(Number); return !y || !m || !d ? null : new Date(y, m - 1, d, 12, 0, 0, 0); }
+  function isoWeekdayForDateKey(dateKey) { const d=dateFromKey(dateKey); if(!d)return null; const day=d.getDay(); return day===0?7:day; }
   function shiftActiveOnDate(state, shiftId, dateKey) {
     const d = dateFromKey(dateKey);
     if (!d) return true;
@@ -50,7 +51,7 @@
     const def = shiftDefinition(state, shiftId);
     if (Array.isArray(def?.activeDays)) return def.activeDays.map(Number).includes(day);
     if (shiftId === 'weekday-morning' || shiftId === 'weekday-mid') return [1,2,3,4].includes(day);
-    if (shiftId === 'weekday-night') return [1,2,3,4,5].includes(day);
+    if (shiftId === 'weekday-night') return [1,2,3,4].includes(day);
     if (shiftId === 'weekend-day' || shiftId === 'weekend-mid' || shiftId === 'weekend-night') return [5,6,0,1].includes(day);
     return true;
   }
@@ -67,7 +68,7 @@
     const configured = state?.rules?.scheduleDefaults || {};
     return {
       morning: configured.morning || { start: '06:00', end: '16:00' },
-      mid: configured.mid || { start: '12:00', end: '20:00' }
+      mid: configured.mid || { start: '12:00', end: '22:00' }
     };
   }
 
@@ -120,26 +121,59 @@
     }
     const baseInterval = start && end ? intervalFromTimes(start, end) : null;
     if (!baseInterval) {
-      return { start: null, end: null, off: false, coverageStatus: 'working', source: 'unconfigured', unconfigured: true, durationMinutes: 0 };
+      return { start: null, end: null, segments: [], off: false, coverageStatus: 'working', source: 'unconfigured', unconfigured: true, durationMinutes: 0 };
     }
-    return { start, end, off: false, coverageStatus: 'working', source: 'default', unconfigured: false, durationMinutes: baseInterval.end - baseInterval.start };
+    return { start, end, segments:[{start,end}], off: false, coverageStatus: 'working', source: 'default', unconfigured: false, durationMinutes: baseInterval.end - baseInterval.start };
+  }
+
+  function recurringProfile(state, personId) {
+    return state?.recurringSchedules?.[personId] || null;
+  }
+
+  function recurringShiftForPerson(state, personId, dateKey) {
+    const profile=recurringProfile(state,personId),iso=isoWeekdayForDateKey(dateKey);
+    if(!profile||!iso)return null;
+    const segments=(profile.segments||[])
+      .filter(segment=>Number(segment.isoWeekday)===iso)
+      .sort((a,b)=>(Number(a.segmentOrder||0)-Number(b.segmentOrder||0)));
+    if(!segments.length){
+      if(!profile.replacesShiftDefault)return null;
+      return {start:null,end:null,segments:[],off:true,vacation:false,recurringOff:true,coverageStatus:'off',source:'recurring',durationMinutes:0,unconfigured:false};
+    }
+    const valid=segments.map(segment=>({start:segment.start,end:segment.end,interval:intervalFromTimes(segment.start,segment.end)})).filter(x=>x.interval);
+    if(!valid.length)return {start:null,end:null,segments:[],off:false,coverageStatus:'working',source:'recurring',durationMinutes:0,unconfigured:true};
+    return {
+      start:valid[0].start,
+      end:valid[valid.length-1].end,
+      segments:valid.map(x=>({start:x.start,end:x.end})),
+      off:false,
+      coverageStatus:'working',
+      source:'recurring',
+      unconfigured:false,
+      durationMinutes:valid.reduce((sum,x)=>sum+(x.interval.end-x.interval.start),0)
+    };
   }
 
   function rawOverride(state, personId, dateKey) { return isDateKey(dateKey) ? (state?.scheduleOverrides?.[dateKey]?.[personId] || null) : null; }
   function getShift(state, personId, dateKey) {
     const person = staffById(state, personId);
     if (!person) return null;
-    if (person.vacation) return { start:null,end:null,off:true,vacation:true,coverageStatus:'vacation',source:'vacation',durationMinutes:0,unconfigured:false };
+    if (person.vacation) return { start:null,end:null,segments:[],off:true,vacation:true,coverageStatus:'vacation',source:'vacation',durationMinutes:0,unconfigured:false };
     const shiftId = operationalShiftId(state, person);
-    const base = defaultShiftForPerson(state, personId);
-    const override = rawOverride(state, personId, dateKey);
-    if (isDateKey(dateKey) && !shiftActiveOnDate(state, shiftId, dateKey) && !override) return { ...base, start:null, end:null, off:true, vacation:false, inactiveShift:true, coverageStatus:'off', source:'inactive-shift', durationMinutes:0, unconfigured:false };
-    if (!override) return base;
-    if (override.off) return { ...base, ...override, start:null,end:null,off:true,vacation:false,coverageStatus:override.coverageStatus || 'off',source:'override',durationMinutes:0,unconfigured:false };
-    const start = override.start || base.start, end = override.end || base.end;
-    const interval = intervalFromTimes(start, end);
-    if (!interval) return { ...base, source: base.unconfigured ? 'unconfigured' : 'default', invalidOverride:true };
-    return { ...base, ...override, start,end,off:false,vacation:false,coverageStatus:override.coverageStatus || 'working',source:'override',durationMinutes:interval.end-interval.start,unconfigured:false };
+    const recurring=isDateKey(dateKey)?recurringShiftForPerson(state,personId,dateKey):null;
+    const defaultBase=defaultShiftForPerson(state,personId);
+    const base=recurring||defaultBase;
+    const override=rawOverride(state,personId,dateKey);
+    if(!recurring&&isDateKey(dateKey)&&!shiftActiveOnDate(state,shiftId,dateKey)&&!override){
+      return {...defaultBase,start:null,end:null,segments:[],off:true,vacation:false,inactiveShift:true,coverageStatus:'off',source:'inactive-shift',durationMinutes:0,unconfigured:false};
+    }
+    if(!override)return base;
+    const status=override.coverageStatus||(override.off?'off':'working');
+    if(override.off||status==='vacation')return {...base,...override,start:null,end:null,segments:[],off:true,vacation:status==='vacation',coverageStatus:status,source:'override',durationMinutes:0,unconfigured:false};
+    const start=override.start||base?.start,end=override.end||base?.end;
+    const interval=intervalFromTimes(start,end);
+    if(!interval)return {...base,source:base?.unconfigured?'unconfigured':(base?.source||'default'),invalidOverride:true};
+    return {...base,...override,start,end,segments:[{start,end}],off:false,vacation:false,coverageStatus:status,source:'override',durationMinutes:interval.end-interval.start,unconfigured:false};
   }
 
   function ensureOverrides(next, dateKey) {
@@ -159,10 +193,13 @@
     return next;
   }
   function setCoverageStatus(state, personId, dateKey, coverageStatus) {
-    const allowed=new Set(['working','training','meeting','unavailable']); const next=clone(state);
+    const allowed=new Set(['working','training','meeting','unavailable','vacation']); const next=clone(state);
     if(!staffById(next,personId)||!isDateKey(dateKey)||!allowed.has(coverageStatus)) return next;
-    ensureOverrides(next,dateKey); const existing=next.scheduleOverrides[dateKey][personId]||{}; const base=defaultShiftForPerson(next,personId);
-    next.scheduleOverrides[dateKey][personId]={...existing,start:existing.start||base.start,end:existing.end||base.end,off:false,coverageStatus}; return next;
+    ensureOverrides(next,dateKey); const existing=next.scheduleOverrides[dateKey][personId]||{}; const base=recurringShiftForPerson(next,personId,dateKey)||defaultShiftForPerson(next,personId);
+    next.scheduleOverrides[dateKey][personId]=coverageStatus==='vacation'
+      ? {off:true,coverageStatus:'vacation'}
+      : {...existing,start:existing.start||base?.start,end:existing.end||base?.end,off:false,coverageStatus};
+    return next;
   }
   function clearOverride(state, personId, dateKey) { const next=clone(state); if(!next.scheduleOverrides?.[dateKey])return next; delete next.scheduleOverrides[dateKey][personId]; if(!Object.keys(next.scheduleOverrides[dateKey]).length)delete next.scheduleOverrides[dateKey]; return next; }
   function clearDay(state,dateKey){const next=clone(state);if(next.scheduleOverrides?.[dateKey])delete next.scheduleOverrides[dateKey];return next;}
@@ -188,15 +225,39 @@
     return next;
   }
 
-  function intervalForShift(shift){if(!shift||shift.off||shift.vacation||shift.unconfigured)return null;return intervalFromTimes(shift.start,shift.end);}
-  function intervalForCoverage(shift){if(!shift||shift.off||shift.vacation||(shift.coverageStatus||'working')!=='working')return null;return intervalForShift(shift);}
-  function overlapMinutes(a,b){const l=intervalForShift(a),r=intervalForShift(b);return !l||!r?0:Math.max(0,Math.min(l.end,r.end)-Math.max(l.start,r.start));}
-  function overlapsForPerson(state,personId,dateKey){const own=getShift(state,personId,dateKey);if(!intervalForShift(own))return[];return allStaff(state).filter(p=>p.id!==personId).map(person=>{const shift=getShift(state,person.id,dateKey);return{person,shift,minutes:overlapMinutes(own,shift)}}).filter(x=>x.minutes>0).sort((a,b)=>(b.minutes-a.minutes)||a.person.name.localeCompare(b.person.name));}
+  function intervalsForShift(shift){
+    if(!shift||shift.off||shift.vacation||shift.unconfigured)return[];
+    const segments=Array.isArray(shift.segments)&&shift.segments.length?shift.segments:(shift.start&&shift.end?[{start:shift.start,end:shift.end}]:[]);
+    return segments.map(segment=>intervalFromTimes(segment.start,segment.end)).filter(Boolean);
+  }
+  function intervalsForCoverage(shift){
+    if(!shift||shift.off||shift.vacation||(shift.coverageStatus||'working')!=='working')return[];
+    return intervalsForShift(shift);
+  }
+  function intervalForShift(shift){
+    const intervals=intervalsForShift(shift);
+    if(!intervals.length)return null;
+    return {start:Math.min(...intervals.map(x=>x.start)),end:Math.max(...intervals.map(x=>x.end))};
+  }
+  function intervalForCoverage(shift){
+    const intervals=intervalsForCoverage(shift);
+    if(!intervals.length)return null;
+    return {start:Math.min(...intervals.map(x=>x.start)),end:Math.max(...intervals.map(x=>x.end))};
+  }
+  function overlapMinutes(a,b){
+    const left=intervalsForShift(a),right=intervalsForShift(b);let total=0;
+    left.forEach(l=>right.forEach(r=>{total+=Math.max(0,Math.min(l.end,r.end)-Math.max(l.start,r.start));}));
+    return total;
+  }
+  function overlapsForPerson(state,personId,dateKey){
+    const own=getShift(state,personId,dateKey);if(!intervalsForShift(own).length)return[];
+    return allStaff(state).filter(p=>p.id!==personId).map(person=>{const shift=getShift(state,person.id,dateKey);return{person,shift,minutes:overlapMinutes(own,shift)}}).filter(x=>x.minutes>0).sort((a,b)=>(b.minutes-a.minutes)||a.person.name.localeCompare(b.person.name));
+  }
 
   function coverageSegments(intervals){const points=[];intervals.forEach(i=>{if(!i)return;points.push({at:i.start,delta:1},{at:i.end,delta:-1})});points.sort((a,b)=>(a.at-b.at)||(a.delta-b.delta));if(!points.length)return[];const out=[];let count=0,last=points[0].at,i=0;while(i<points.length){const at=points[i].at;if(at>last&&count>0)out.push({start:last,end:at,count});while(i<points.length&&points[i].at===at){count+=points[i].delta;i++}last=at}return out;}
   function crossTeamOverlapSegments(state,dateKey){
-    const m=allStaff(state).filter(p=>coverageGroup(p)==='morning').map(p=>intervalForShift(getShift(state,p.id,dateKey))).filter(Boolean);
-    const d=allStaff(state).filter(p=>coverageGroup(p)==='mid').map(p=>intervalForShift(getShift(state,p.id,dateKey))).filter(Boolean);
+    const m=allStaff(state).filter(p=>coverageGroup(p)==='morning').flatMap(p=>intervalsForShift(getShift(state,p.id,dateKey)));
+    const d=allStaff(state).filter(p=>coverageGroup(p)==='mid').flatMap(p=>intervalsForShift(getShift(state,p.id,dateKey)));
     const mc=coverageSegments(m),dc=coverageSegments(d),out=[];mc.forEach(a=>dc.forEach(b=>{const start=Math.max(a.start,b.start),end=Math.min(a.end,b.end);if(end>start)out.push({start,end,morningCount:a.count,midCount:b.count})}));return out;
   }
   function mergeSegments(segments){const sorted=segments.slice().sort((a,b)=>a.start-b.start||a.end-b.end),out=[];sorted.forEach(s=>{const last=out[out.length-1];if(last&&s.start<=last.end)last.end=Math.max(last.end,s.end);else out.push({start:s.start,end:s.end})});return out;}
@@ -226,18 +287,40 @@
     });
   }
 
+  function shiftTimeLabel(shift){
+    if(!shift||shift.off||shift.vacation)return '';
+    const segments=Array.isArray(shift.segments)&&shift.segments.length?shift.segments:(shift.start&&shift.end?[{start:shift.start,end:shift.end}]:[]);
+    return segments.map(s=>`${formatTime(s.start)}–${formatTime(s.end)}`).join(' + ');
+  }
+
+  function outForDates(state,dateKeys,shiftIds){
+    const wanted=new Set(shiftIds||[]),rows=[];
+    (dateKeys||[]).forEach(dateKey=>{
+      outToday(state,dateKey).forEach(row=>{
+        if(wanted.size&&!wanted.has(row.shiftId))return;
+        rows.push({...row,dateKey});
+      });
+    });
+    return rows;
+  }
+
   function dayStats(state,dateKey){
     const rows=allStaff(state).map(person=>({person,shift:getShift(state,person.id,dateKey)}));
-    const activeRows=rows.filter(r=>intervalForShift(r.shift));
+    const activeRows=rows.filter(r=>intervalsForShift(r.shift).length);
     const morningRows=activeRows.filter(r=>coverageGroup(r.person)==='morning'),midRows=activeRows.filter(r=>coverageGroup(r.person)==='mid');
     const overlapSegments=crossTeamOverlapSegments(state,dateKey),mergedOverlap=mergeSegments(overlapSegments);
     const visible = new Set(visibleShiftIds(state, dateKey));
     const visibleRows = rows.filter(r => visible.has(operationalShiftId(state, r.person)));
-    const shiftStats={}; shiftCatalog(state).filter(def => visible.has(def.id)).forEach(def=>{const all=visibleRows.filter(r=>operationalShiftId(state, r.person)===def.id), active=all.filter(r=>intervalForShift(r.shift)); shiftStats[def.id]={def,total:all.length,activeCount:active.length,hours:active.reduce((s,r)=>s+r.shift.durationMinutes,0)/60,unconfigured:all.filter(r=>r.shift?.unconfigured).length};});
+    const shiftStats={}; shiftCatalog(state).filter(def => visible.has(def.id)).forEach(def=>{const all=visibleRows.filter(r=>operationalShiftId(state, r.person)===def.id), active=all.filter(r=>intervalsForShift(r.shift).length); shiftStats[def.id]={def,total:all.length,activeCount:active.length,hours:active.reduce((s,r)=>s+r.shift.durationMinutes,0)/60,unconfigured:all.filter(r=>r.shift?.unconfigured).length};});
     return {rows,activeCount:activeRows.length,morningCount:morningRows.length,midCount:midRows.length,morningHours:morningRows.reduce((s,r)=>s+r.shift.durationMinutes,0)/60,midHours:midRows.reduce((s,r)=>s+r.shift.durationMinutes,0)/60,exceptions:rows.filter(r=>rawOverride(state,r.person.id,dateKey)).length,overlapSegments,mergedOverlap,overlapMinutes:mergedOverlap.reduce((s,x)=>s+x.end-x.start,0),shiftStats,totalHours:activeRows.reduce((s,r)=>s+r.shift.durationMinutes,0)/60,unconfiguredCount:rows.filter(r=>r.shift?.unconfigured).length};
   }
 
-  function barPosition(state,shift){const interval=intervalForShift(shift);if(!interval)return null;const t=timelineRules(state),ts=timeToMinutes(t.start),te=timeToMinutes(t.end),span=Math.max(1,te-ts),cs=Math.max(ts,Math.min(te,interval.start)),ce=Math.max(ts,Math.min(te,interval.end));return{leftPct:((cs-ts)/span)*100,widthPct:Math.max(0,((ce-cs)/span)*100),clippedBefore:interval.start<ts,clippedAfter:interval.end>te};}
+  function barPositions(state,shift){
+    const intervals=intervalsForShift(shift);if(!intervals.length)return[];
+    const t=timelineRules(state),ts=timeToMinutes(t.start),te=timeToMinutes(t.end),span=Math.max(1,te-ts);
+    return intervals.map(interval=>{const cs=Math.max(ts,Math.min(te,interval.start)),ce=Math.max(ts,Math.min(te,interval.end));return{leftPct:((cs-ts)/span)*100,widthPct:Math.max(0,((ce-cs)/span)*100),clippedBefore:interval.start<ts,clippedAfter:interval.end>te};}).filter(pos=>pos.widthPct>0);
+  }
+  function barPosition(state,shift){return barPositions(state,shift)[0]||null;}
 
-  return {clone,allStaff,staffById,shiftCatalog,shiftDefinition,managerShiftId,operationalShiftId,coverageGroup,scheduleRules,timelineRules,isDateKey,timeToMinutes,minutesToTime,formatTime,formatDuration,intervalFromTimes,defaultShiftForPerson,rawOverride,getShift,setShift,setOff,setCoverageStatus,clearOverride,clearDay,setShiftDefault,clearShiftDefault,setShiftDays,setShiftSchedule,intervalForShift,intervalForCoverage,overlapMinutes,overlapsForPerson,coverageSegments,crossTeamOverlapSegments,mergeSegments,shiftActiveOnDate,visibleShiftIds,isShiftSupervisor,outToday,dayStats,barPosition};
+  return {clone,allStaff,staffById,shiftCatalog,shiftDefinition,managerShiftId,operationalShiftId,coverageGroup,scheduleRules,timelineRules,isDateKey,timeToMinutes,minutesToTime,formatTime,formatDuration,intervalFromTimes,isoWeekdayForDateKey,defaultShiftForPerson,recurringProfile,recurringShiftForPerson,rawOverride,getShift,setShift,setOff,setCoverageStatus,clearOverride,clearDay,setShiftDefault,clearShiftDefault,setShiftDays,setShiftSchedule,intervalsForShift,intervalsForCoverage,intervalForShift,intervalForCoverage,overlapMinutes,overlapsForPerson,coverageSegments,crossTeamOverlapSegments,mergeSegments,shiftActiveOnDate,visibleShiftIds,isShiftSupervisor,shiftTimeLabel,outToday,outForDates,dayStats,barPositions,barPosition};
 });

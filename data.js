@@ -32,7 +32,7 @@
       },
       "mid": {
         "start": "12:00",
-        "end": "20:00"
+        "end": "22:00"
       }
     },
     "scheduleTimeline": {
@@ -271,7 +271,7 @@
       "name": "David",
       "shift": "morning",
       "role": "tce",
-      "vacation": true,
+      "vacation": false,
       "fullName": "David Lewis",
       "title": "Sr TCE",
       "manager": "Christopher",
@@ -489,7 +489,7 @@
       "supervisorName": "Chaitanya Jagarapu",
       "supervisorTitle": "Shift Supervisor",
       "defaultStart": "12:00",
-      "defaultEnd": "20:00",
+      "defaultEnd": "22:00",
       "coverageGroup": null,
       "supervisorId": "roster-chaitanya-jagarapu",
       "activeDays": [
@@ -512,8 +512,7 @@
         1,
         2,
         3,
-        4,
-        5
+        4
       ]
     },
     {
@@ -538,7 +537,7 @@
       "supervisorName": "Stephen Parker",
       "supervisorTitle": "Shift Supervisor",
       "defaultStart": "12:00",
-      "defaultEnd": "20:00",
+      "defaultEnd": "22:00",
       "coverageGroup": "mid",
       "supervisorId": "roster-stephen-parker",
       "activeDays": [
@@ -569,7 +568,7 @@
       "name": "Commissioning",
       "supervisorName": "Michael Westfield",
       "supervisorTitle": "Manager",
-      "defaultStart": "09:00",
+      "defaultStart": "08:00",
       "defaultEnd": "17:00",
       "coverageGroup": null,
       "supervisorId": "roster-michael-westfield",

@@ -42,14 +42,14 @@
 
   function activeIds(state,dateKey,start,end,shiftIds,roleCheck){
     return selectedPeople(state,shiftIds,roleCheck).filter(person=>{
-      const interval=S.intervalForCoverage(S.getShift(state,person.id,dateKey));
-      return interval&&interval.start<=start&&interval.end>=end;
+      const intervals=S.intervalsForCoverage(S.getShift(state,person.id,dateKey));
+      return intervals.some(interval=>interval.start<=start&&interval.end>=end);
     }).map(p=>p.id);
   }
 
   function planRange(state,dateKey,shiftIds){
     const participants=[...selectedPeople(state,shiftIds,isEngineer),...selectedPeople(state,shiftIds,isTsa)];
-    const intervals=participants.map(p=>S.intervalForShift(S.getShift(state,p.id,dateKey))).filter(Boolean);
+    const intervals=participants.flatMap(p=>S.intervalsForShift(S.getShift(state,p.id,dateKey)));
     if(!intervals.length)return null;
     return {start:Math.min(...intervals.map(i=>i.start)),end:Math.max(...intervals.map(i=>i.end))};
   }
@@ -60,11 +60,11 @@
     const boundaries=new Set([range.start,range.end]);
     const participants=[...selectedPeople(state,shiftIds,isEngineer),...selectedPeople(state,shiftIds,isTsa)];
     participants.forEach(person=>{
-      const interval=S.intervalForShift(S.getShift(state,person.id,dateKey));
-      if(!interval)return;
-      if(interval.end<=range.start||interval.start>=range.end)return;
-      boundaries.add(Math.max(range.start,interval.start));
-      boundaries.add(Math.min(range.end,interval.end));
+      S.intervalsForShift(S.getShift(state,person.id,dateKey)).forEach(interval=>{
+        if(interval.end<=range.start||interval.start>=range.end)return;
+        boundaries.add(Math.max(range.start,interval.start));
+        boundaries.add(Math.min(range.end,interval.end));
+      });
     });
     const points=[...boundaries].sort((a,b)=>a-b), out=[];
     for(let i=0;i<points.length-1;i+=1){if(points[i+1]>points[i])out.push({start:points[i],end:points[i+1]});}
@@ -149,7 +149,7 @@
     const ids=[...(shiftIds||[])].sort();
     const staff=S.allStaff(state).filter(p=>ids.includes(shiftId(state,p))&&(isEngineer(p)||isTsa(p))).map(p=>{
       const shift=S.getShift(state,p.id,dateKey);
-      return [p.id,shift.start,shift.end,shift.off,shift.vacation,shift.coverageStatus||'working'].join(':');
+      return [p.id,JSON.stringify(shift.segments||[]),shift.start,shift.end,shift.off,shift.vacation,shift.coverageStatus||'working'].join(':');
     }).sort();
     const defs=ids.map(id=>{const d=S.shiftDefinition(state,id);return [id,d?.defaultStart,d?.defaultEnd,(d?.activeDays||[]).join(',')].join(':');});
     const locks=assignmentLocks(state).map(x=>`${x.personId}:${x.siteId}`).sort();

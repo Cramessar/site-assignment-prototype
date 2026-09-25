@@ -7,7 +7,7 @@ const CB = require('./coverage-builder.js');
 
 assert.strictEqual(seed.sites.length, 38, 'Expected 38 sites from workbook');
 assert.strictEqual(L.totalTickets(seed), 1926, 'Expected 1,926 tickets from workbook');
-assert.deepStrictEqual(seed.people.filter(p => p.vacation).map(p => p.name).sort(), ['Bryan', 'David'], 'David and Bryan should start on vacation');
+assert.deepStrictEqual(seed.people.filter(p => p.vacation).map(p => p.name).sort(), ['Bryan'], 'Only legacy Bryan should remain flagged in the fallback prototype seed; active vacations are date-specific');
 assert.deepStrictEqual(seed.supportAdmins.map(a => a.name).sort(), ['Amin', 'Ola', 'Ryan'], 'Expected three TSAs');
 assert.strictEqual(seed.people.find(p => p.name === 'Youssef').role, 'tce');
 assert.strictEqual(seed.people.find(p => p.name === 'Carolyn').role, 'tse');
@@ -50,7 +50,7 @@ assert.strictEqual(S.getShift(withNightHours, 'roster-kevin-mitchell', '2026-08-
 
 assert.strictEqual(S.operationalShiftId(seed, S.allStaff(seed).find(p => p.fullName === 'Andrea Capuras')), 'weekend-night', "Andrea should inherit Guillermo's shift for scheduling");
 assert.strictEqual(S.getShift(S.setShiftDefault(seed, 'weekend-night', '20:00', '06:00'), 'roster-andrea-capuras', '2026-09-04').durationMinutes, 600, "Andrea should use Guillermo's shift default when weekend-night hours are configured");
-assert.deepStrictEqual(S.visibleShiftIds(seed, '2026-09-04').filter(x => x.startsWith('weekday-')).sort(), ['weekday-night'], 'Friday should show weekday night only, not weekday morning or weekday mid');
+assert.deepStrictEqual(S.visibleShiftIds(seed, '2026-09-04').filter(x => x.startsWith('weekday-')).sort(), [], 'Friday should not show the Mon-Thu weekday shifts');
 assert.ok(!S.visibleShiftIds(seed, '2026-09-05').includes('weekday-night'), 'Saturday should not show weekday night');
 const customDays = S.setShiftDays(seed, 'weekend-day', [6]);
 assert.strictEqual(S.shiftActiveOnDate(customDays, 'weekend-day', '2026-09-04'), false, 'Changing active days should remove Weekend Day from Friday');
@@ -63,7 +63,7 @@ assert.strictEqual(S.getShift(offDayOverride, 'roster-divyesh-kabariya', '2026-0
 
 // v9 multi-shift Coverage Builder: any selected operational shifts can own the 38 sites.
 const weekendPlan = CB.generatePlan(seed, '2026-09-05', ['weekend-day','weekend-mid']);
-assert.deepStrictEqual(weekendPlan.windows.map(w=>[w.start,w.end]), [[360,720],[720,960],[960,1200]], 'Weekend Day + Mid should generate familiar 6-12, 12-4, 4-8 windows');
+assert.deepStrictEqual(weekendPlan.windows.map(w=>[w.start,w.end]), [[360,720],[720,960],[960,1320]], 'Weekend Day + Mid should generate 6-12, 12-4, 4-10 windows');
 assert.ok(CB.health(seed, weekendPlan).ok, 'Weekend multi-shift plan should fully cover all sites');
 assert.ok(weekendPlan.windows.every(w=>!w.activeEngineers.some(id=>['tss','supervisor','manager'].includes(S.staffById(seed,id)?.role))), 'Supervisors and managers must never receive site assignments');
 const weekendOverlap = weekendPlan.windows.find(w=>w.start===720);
@@ -72,13 +72,13 @@ const weekendMidLoad = weekendLoads.find(x=>x.shiftId==='weekend-mid');
 assert.ok(Math.abs(weekendMidLoad.pct-.40)<.02, 'Weekend Day/Mid generic builder should retain the 60/40 workload rule');
 
 const weekdayPlan = CB.generatePlan(seed, '2026-09-01', ['weekday-morning','weekday-mid']);
-assert.deepStrictEqual(weekdayPlan.windows.map(w=>[w.start,w.end]), [[360,720],[720,960],[960,1200]], 'Weekday Morning + Mid should use configured shift times');
+assert.deepStrictEqual(weekdayPlan.windows.map(w=>[w.start,w.end]), [[360,720],[720,960],[960,1320]], 'Weekday Morning + Mid should use configured 6-4 and 12-10 shift times');
 assert.ok(CB.health(seed, weekdayPlan).ok, 'Weekday supervisors should be able to generate complete site coverage');
 assert.ok(weekdayPlan.windows.some(w=>w.activeEngineers.includes('roster-divyesh-kabariya')), 'Weekday Mid engineers should receive site assignments');
 assert.ok(weekdayPlan.windows.some(w=>w.activeAdmins.includes('roster-luis-arteaga')), 'Weekday Mid TSA should participate in TSA support');
 
 const midNightPlan = CB.generatePlan(seed, '2026-09-04', ['weekend-mid','weekend-night']);
-assert.deepStrictEqual(midNightPlan.windows.map(w=>[w.start,w.end]), [[720,1200],[1200,1800]], 'Mid + Night should create an 8pm site handoff and support overnight coverage');
+assert.deepStrictEqual(midNightPlan.windows.map(w=>[w.start,w.end]), [[720,1200],[1200,1320],[1320,1800]], 'Mid + Night should represent the 8-10 overlap and 10pm Mid departure');
 assert.ok(CB.handoffs(seed, midNightPlan).some(h=>h.at===1200), 'Mid/Night plan should expose the 8pm handoff');
 assert.ok(midNightPlan.windows[1].activeAdmins.includes('roster-andrea-capuras'), 'Andrea should participate as Weekend Night TSA through supervisor-inherited shift');
 const publishedMulti = CB.publishPlan(seed, '2026-09-01', weekdayPlan);
@@ -87,8 +87,8 @@ assert.strictEqual(CB.isPlanStale(publishedMulti, '2026-09-01', CB.publishedPlan
 
 // TSA layer: every active engineer gets exactly one primary pairing and full real-time coverage.
 const td = L.tsaDiagnostics(balanced);
-assert.strictEqual(td.activeEngineerCount, 8, 'David and Bryan are out, leaving eight active engineers');
-assert.strictEqual(td.coveredPrimaryCount, 8, 'Every active engineer should have primary TSA coverage');
+assert.strictEqual(td.activeEngineerCount, 9, 'Only legacy Bryan is out in the fallback seed, leaving nine active engineers');
+assert.strictEqual(td.coveredPrimaryCount, 9, 'Every active engineer should have primary TSA coverage');
 assert.deepStrictEqual(td.missingPrimary, [], 'No active engineer should miss a primary TSA');
 assert.deepStrictEqual(td.duplicatePrimary, [], 'Each active engineer should have one primary TSA');
 assert.deepStrictEqual(td.uncoveredWindows, [], 'Every active engineer should have TSA coverage throughout their shift');
@@ -104,8 +104,9 @@ balanced.people.filter(p => !p.vacation).forEach(engineer => {
   assert.strictEqual(L.tsaOwnersForEngineer(balanced, engineer.id, true).length, 1, `${engineer.name} should have one primary TSA`);
 });
 
-// David returning should get sites and a TSA pairing immediately.
-const davidBack = L.setVacation(balanced, 'morning-david', false);
+// Legacy rebalance behavior should still restore assignments when a person returns.
+const davidTemporarilyOut = L.setVacation(balanced, 'morning-david', true);
+const davidBack = L.setVacation(davidTemporarilyOut, 'morning-david', false);
 assert.strictEqual(davidBack.people.find(p => p.id === 'morning-david').vacation, false, 'David should be active');
 assert.ok(davidBack.assignments['morning-david'].length > 0, 'Returning from vacation should automatically receive sites');
 assert.strictEqual(L.tsaOwnersForEngineer(davidBack, 'morning-david', true).length, 1, 'Returning engineer should automatically receive a TSA');
@@ -167,7 +168,7 @@ assert.strictEqual(chadDefault.end, '16:00', 'Morning default should end at 4pm'
 assert.strictEqual(chadDefault.durationMinutes, 600, 'Morning default should be a 10-hour shift');
 const cameronDefault = S.getShift(balanced, 'mid-cameron', scheduleDate);
 assert.strictEqual(cameronDefault.start, '12:00', 'Midday default should start at noon');
-assert.strictEqual(cameronDefault.end, '20:00', 'Midday default should end at 8pm');
+assert.strictEqual(cameronDefault.end, '22:00', 'Midday default should end at 10pm');
 assert.strictEqual(S.overlapMinutes(chadDefault, cameronDefault), 240, 'Default cross-shift overlap should be four hours');
 
 const chadTwelve = S.setShift(balanced, 'morning-chad', scheduleDate, '06:00', '18:00');
@@ -192,19 +193,20 @@ assert.strictEqual(dayStats.exceptions, 0, 'Default schedule should not count as
 const exceptionStats = S.dayStats(chadTwelve, scheduleDate);
 assert.strictEqual(exceptionStats.exceptions, 1, 'A custom 12-hour day should count as one daily exception');
 
-assert.strictEqual(S.getShift(balanced, 'morning-david', scheduleDate).vacation, true, 'Vacation staff should appear as vacation on the calendar');
+const davidVacationDay = S.setCoverageStatus(balanced, 'morning-david', scheduleDate, 'vacation');
+assert.strictEqual(S.getShift(davidVacationDay, 'morning-david', scheduleDate).vacation, true, 'Date-specific vacation should appear as vacation on the calendar');
 assert.strictEqual(S.getShift(balanced, 'mid-bryan', scheduleDate).durationMinutes, 0, 'Vacation staff should have no scheduled hours');
 
 // v6 Daily Plan: schedule-aware windows, locks, handoffs, health, history, and status.
 let v6 = DP.normalizeState(balanced);
 const daily = DP.generatePlan(v6, scheduleDate);
-assert.deepStrictEqual(daily.windows.map(w => [w.start,w.end]), [[360,720],[720,960],[960,1200]], 'Normal day should generate 6-12, 12-4, and 4-8 windows');
+assert.deepStrictEqual(daily.windows.map(w => [w.start,w.end]), [[360,720],[720,960],[960,1320]], 'Normal day should generate 6-12, 12-4, and 4-10 windows');
 assert.ok(DP.coverageHealth(v6, daily).ok, 'Normal generated daily plan should have complete site coverage');
 const overlapWindow = daily.windows.find(w => w.start === 720 && w.end === 960);
 const split = DP.windowSplit(v6, overlapWindow);
 assert.ok(Math.abs(split.midPct - 0.40) < .01, 'Dynamic overlap window should stay near 40% midday workload');
 assert.strictEqual(overlapWindow.siteOwners['BRK - 6020'], 'morning-carolyn', 'BRK lock should be honored while Carolyn is working');
-const lateWindow = daily.windows.find(w => w.start === 960 && w.end === 1200);
+const lateWindow = daily.windows.find(w => w.start === 960 && w.end === 1320);
 assert.ok(lateWindow.siteOwners['BRK - 6020'].startsWith('mid-'), 'BRK should hand off after Carolyn leaves instead of becoming uncovered');
 assert.ok(DP.handoffs(v6, daily).some(h => h.at === 960), 'Daily plan should expose the 4pm handoff');
 
@@ -290,15 +292,20 @@ console.log('All prototype v10.2 daily status redistribution tests passed.');
 
 // Daily public availability banner data should include explicit absences only.
 const outState = S.setCoverageStatus(
-  S.setOff(
-    S.setCoverageStatus(seed, 'morning-chad', '2026-09-05', 'training'),
+  S.setCoverageStatus(
+    S.setOff(
+      S.setCoverageStatus(seed, 'morning-chad', '2026-09-05', 'training'),
     'mid-cameron',
     '2026-09-05',
-    true
+      true
+    ),
+    'mid-garett',
+    '2026-09-05',
+    'unavailable'
   ),
-  'mid-garett',
+  'morning-david',
   '2026-09-05',
-  'unavailable'
+  'vacation'
 );
 const outRows = S.outToday(outState, '2026-09-05');
 assert.ok(outRows.some(x => x.person.id === 'morning-david' && x.status === 'vacation'), 'Vacation should appear in out-today data');
@@ -306,3 +313,54 @@ assert.ok(outRows.some(x => x.person.id === 'morning-chad' && x.status === 'trai
 assert.ok(outRows.some(x => x.person.id === 'mid-cameron' && x.status === 'off'), 'Explicit Off should appear in out-today data');
 assert.ok(outRows.some(x => x.person.id === 'mid-garett' && x.status === 'unavailable'), 'Unavailable should appear in out-today data');
 assert.ok(!outRows.some(x => x.person.id === 'roster-matthew-weimer'), 'Normal inactive shifts must not be mislabeled as out today');
+
+
+// Recurring person schedules override group defaults without becoming daily exceptions.
+const recurringState = JSON.parse(JSON.stringify(seed));
+recurringState.recurringSchedules = {
+  'morning-david': {
+    replacesShiftDefault: true,
+    segments: [
+      { isoWeekday: 5, segmentOrder: 0, start: '06:00', end: '18:00' },
+      { isoWeekday: 6, segmentOrder: 0, start: '06:00', end: '18:00' },
+      { isoWeekday: 7, segmentOrder: 0, start: '06:00', end: '18:00' }
+    ]
+  },
+  'roster-matthew-weimer': {
+    replacesShiftDefault: true,
+    segments: [
+      { isoWeekday: 2, segmentOrder: 0, start: '05:00', end: '08:30' },
+      { isoWeekday: 2, segmentOrder: 1, start: '13:00', end: '17:30' }
+    ]
+  }
+};
+
+const davidFriday = S.getShift(recurringState, 'morning-david', '2026-09-25');
+assert.equal(davidFriday.source, 'recurring', 'David Friday should resolve from recurring schedule');
+assert.equal(davidFriday.start, '06:00');
+assert.equal(davidFriday.end, '18:00');
+assert.equal(davidFriday.durationMinutes, 720, 'David recurring day should be 12 hours');
+
+const davidMonday = S.getShift(recurringState, 'morning-david', '2026-09-28');
+assert.equal(davidMonday.off, true, 'Custom 36-hour profile should make Monday off even though Weekend Day is normally active Monday');
+assert.equal(davidMonday.recurringOff, true);
+
+const matthewTuesday = S.getShift(recurringState, 'roster-matthew-weimer', '2026-09-29');
+assert.equal(matthewTuesday.source, 'recurring');
+assert.equal(matthewTuesday.durationMinutes, 480, 'Split Tuesday should total 8 scheduled hours');
+assert.equal(S.intervalsForCoverage(matthewTuesday).length, 2, 'Split recurring schedule should preserve both work blocks');
+assert.equal(S.shiftTimeLabel(matthewTuesday), '5:00 AM–8:30 AM + 1:00 PM–5:30 PM');
+
+const weeklyAbsenceState = S.setCoverageStatus(
+  S.setCoverageStatus(recurringState, 'morning-chad', '2026-09-25', 'vacation'),
+  'mid-cameron',
+  '2026-09-26',
+  'unavailable'
+);
+const weeklyAbsences = S.outForDates(
+  weeklyAbsenceState,
+  ['2026-09-25', '2026-09-26', '2026-09-27'],
+  ['weekend-day', 'weekend-mid']
+);
+assert.ok(weeklyAbsences.some(x => x.person.id === 'morning-chad' && x.status === 'vacation'));
+assert.ok(weeklyAbsences.some(x => x.person.id === 'mid-cameron' && x.status === 'unavailable'));
