@@ -146,3 +146,19 @@ class StaffScheduleException(Base):
             name="uq_staff_schedule_exception_person_date",
         ),
     )
+
+
+
+class PublishedCoveragePlan(Base):
+    __tablename__ = "published_coverage_plans"
+
+    period_key: Mapped[str] = mapped_column(String(240), primary_key=True)
+    period_start: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    period_end: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    selected_shift_ids: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False)
+    published_by: Mapped[str] = mapped_column(String(320), nullable=False)
+    published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
