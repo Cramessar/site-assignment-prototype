@@ -43,6 +43,7 @@
   }
   function coverageGroup(person) { return person?.coverageGroup || person?.shift || null; }
   function dateFromKey(dateKey) { const [y,m,d] = String(dateKey || '').split('-').map(Number); return !y || !m || !d ? null : new Date(y, m - 1, d, 12, 0, 0, 0); }
+  function isoWeekdayForDateKey(dateKey) { const d=dateFromKey(dateKey); if(!d)return null; const day=d.getDay(); return day===0?7:day; }
   function shiftActiveOnDate(state, shiftId, dateKey) {
     const d = dateFromKey(dateKey);
     if (!d) return true;
@@ -50,7 +51,7 @@
     const def = shiftDefinition(state, shiftId);
     if (Array.isArray(def?.activeDays)) return def.activeDays.map(Number).includes(day);
     if (shiftId === 'weekday-morning' || shiftId === 'weekday-mid') return [1,2,3,4].includes(day);
-    if (shiftId === 'weekday-night') return [1,2,3,4,5].includes(day);
+    if (shiftId === 'weekday-night') return [1,2,3,4].includes(day);
     if (shiftId === 'weekend-day' || shiftId === 'weekend-mid' || shiftId === 'weekend-night') return [5,6,0,1].includes(day);
     return true;
   }
@@ -67,7 +68,7 @@
     const configured = state?.rules?.scheduleDefaults || {};
     return {
       morning: configured.morning || { start: '06:00', end: '16:00' },
-      mid: configured.mid || { start: '12:00', end: '20:00' }
+      mid: configured.mid || { start: '12:00', end: '22:00' }
     };
   }
 
