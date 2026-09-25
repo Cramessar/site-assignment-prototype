@@ -118,7 +118,7 @@ class JiraClient:
             "issuetype",
         ]
         async with httpx.AsyncClient(
-            base_url=self.settings.jira_base_url.rstrip("/"),
+            base_url=self.settings.jira_base_url.rstrip("/") + "/",
             timeout=self.settings.jira_timeout_seconds,
             verify=self.settings.jira_verify_ssl,
             auth=self._auth(),
@@ -134,7 +134,7 @@ class JiraClient:
                     }
                     if token:
                         body["nextPageToken"] = token
-                    response = await client.post("/rest/api/3/search/jql", json=body)
+                    response = await client.post("rest/api/3/search/jql", json=body)
                     response.raise_for_status()
                     payload = response.json()
                     for issue in payload.get("issues", []):
@@ -151,7 +151,7 @@ class JiraClient:
                         "maxResults": self.settings.jira_page_size,
                         "startAt": start_at,
                     }
-                    response = await client.post("/rest/api/2/search", json=body)
+                    response = await client.post("rest/api/2/search", json=body)
                     response.raise_for_status()
                     payload = response.json()
                     issues = payload.get("issues", [])
