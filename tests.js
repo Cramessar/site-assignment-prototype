@@ -206,7 +206,7 @@ const overlapWindow = daily.windows.find(w => w.start === 720 && w.end === 960);
 const split = DP.windowSplit(v6, overlapWindow);
 assert.ok(Math.abs(split.midPct - 0.40) < .01, 'Dynamic overlap window should stay near 40% midday workload');
 assert.strictEqual(overlapWindow.siteOwners['BRK - 6020'], 'morning-carolyn', 'BRK lock should be honored while Carolyn is working');
-const lateWindow = daily.windows.find(w => w.start === 960 && w.end === 1200);
+const lateWindow = daily.windows.find(w => w.start === 960 && w.end === 1320);
 assert.ok(lateWindow.siteOwners['BRK - 6020'].startsWith('mid-'), 'BRK should hand off after Carolyn leaves instead of becoming uncovered');
 assert.ok(DP.handoffs(v6, daily).some(h => h.at === 960), 'Daily plan should expose the 4pm handoff');
 
