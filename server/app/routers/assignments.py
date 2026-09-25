@@ -3,7 +3,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..auth import require_supervisor
@@ -20,12 +20,12 @@ class PublishedPlanBody(BaseModel):
 
 def _public_payload(row: PublishedCoveragePlan) -> dict[str, Any]:
     payload = dict(row.payload or {})
+    payload.pop("publishedBy", None)
     payload["periodKey"] = row.period_key
     payload["periodStart"] = row.period_start.isoformat()
     payload["periodEnd"] = row.period_end.isoformat()
     payload["selectedShiftIds"] = list(row.selected_shift_ids or [])
     payload["publishedAt"] = row.published_at.isoformat() if row.published_at else None
-    payload["publishedBy"] = row.published_by
     return payload
 
 
