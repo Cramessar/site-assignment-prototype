@@ -182,6 +182,9 @@
 
   function renderTeamSchedule() {
     const selected = $('personSelect').value || '';
+    const selectedPerson = selected ? S.staffById(state, selected) : null;
+    const shiftIds = selectedPerson ? [S.operationalShiftId(state, selectedPerson)] : [];
+    $('outBanner').innerHTML = A.outBannerHTML(state, scheduleDateKey, { dates: A.weekDateKeys(scheduleDateKey), shiftIds });
     $('scheduleDate').value = scheduleDateKey;
     $('scheduleSummary').innerHTML = SV.summaryHTML(state, scheduleDateKey);
     $('scheduleBoard').innerHTML = SV.boardHTML(state, scheduleDateKey, { editable: false, selectedPersonId: selected });
