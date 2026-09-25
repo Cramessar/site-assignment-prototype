@@ -284,18 +284,40 @@
     });
   }
 
+  function shiftTimeLabel(shift){
+    if(!shift||shift.off||shift.vacation)return '';
+    const segments=Array.isArray(shift.segments)&&shift.segments.length?shift.segments:(shift.start&&shift.end?[{start:shift.start,end:shift.end}]:[]);
+    return segments.map(s=>`${formatTime(s.start)}–${formatTime(s.end)}`).join(' + ');
+  }
+
+  function outForDates(state,dateKeys,shiftIds){
+    const wanted=new Set(shiftIds||[]),rows=[];
+    (dateKeys||[]).forEach(dateKey=>{
+      outToday(state,dateKey).forEach(row=>{
+        if(wanted.size&&!wanted.has(row.shiftId))return;
+        rows.push({...row,dateKey});
+      });
+    });
+    return rows;
+  }
+
   function dayStats(state,dateKey){
     const rows=allStaff(state).map(person=>({person,shift:getShift(state,person.id,dateKey)}));
-    const activeRows=rows.filter(r=>intervalForShift(r.shift));
+    const activeRows=rows.filter(r=>intervalsForShift(r.shift).length);
     const morningRows=activeRows.filter(r=>coverageGroup(r.person)==='morning'),midRows=activeRows.filter(r=>coverageGroup(r.person)==='mid');
     const overlapSegments=crossTeamOverlapSegments(state,dateKey),mergedOverlap=mergeSegments(overlapSegments);
     const visible = new Set(visibleShiftIds(state, dateKey));
     const visibleRows = rows.filter(r => visible.has(operationalShiftId(state, r.person)));
-    const shiftStats={}; shiftCatalog(state).filter(def => visible.has(def.id)).forEach(def=>{const all=visibleRows.filter(r=>operationalShiftId(state, r.person)===def.id), active=all.filter(r=>intervalForShift(r.shift)); shiftStats[def.id]={def,total:all.length,activeCount:active.length,hours:active.reduce((s,r)=>s+r.shift.durationMinutes,0)/60,unconfigured:all.filter(r=>r.shift?.unconfigured).length};});
+    const shiftStats={}; shiftCatalog(state).filter(def => visible.has(def.id)).forEach(def=>{const all=visibleRows.filter(r=>operationalShiftId(state, r.person)===def.id), active=all.filter(r=>intervalsForShift(r.shift).length); shiftStats[def.id]={def,total:all.length,activeCount:active.length,hours:active.reduce((s,r)=>s+r.shift.durationMinutes,0)/60,unconfigured:all.filter(r=>r.shift?.unconfigured).length};});
     return {rows,activeCount:activeRows.length,morningCount:morningRows.length,midCount:midRows.length,morningHours:morningRows.reduce((s,r)=>s+r.shift.durationMinutes,0)/60,midHours:midRows.reduce((s,r)=>s+r.shift.durationMinutes,0)/60,exceptions:rows.filter(r=>rawOverride(state,r.person.id,dateKey)).length,overlapSegments,mergedOverlap,overlapMinutes:mergedOverlap.reduce((s,x)=>s+x.end-x.start,0),shiftStats,totalHours:activeRows.reduce((s,r)=>s+r.shift.durationMinutes,0)/60,unconfiguredCount:rows.filter(r=>r.shift?.unconfigured).length};
   }
 
-  function barPosition(state,shift){const interval=intervalForShift(shift);if(!interval)return null;const t=timelineRules(state),ts=timeToMinutes(t.start),te=timeToMinutes(t.end),span=Math.max(1,te-ts),cs=Math.max(ts,Math.min(te,interval.start)),ce=Math.max(ts,Math.min(te,interval.end));return{leftPct:((cs-ts)/span)*100,widthPct:Math.max(0,((ce-cs)/span)*100),clippedBefore:interval.start<ts,clippedAfter:interval.end>te};}
+  function barPositions(state,shift){
+    const intervals=intervalsForShift(shift);if(!intervals.length)return[];
+    const t=timelineRules(state),ts=timeToMinutes(t.start),te=timeToMinutes(t.end),span=Math.max(1,te-ts);
+    return intervals.map(interval=>{const cs=Math.max(ts,Math.min(te,interval.start)),ce=Math.max(ts,Math.min(te,interval.end));return{leftPct:((cs-ts)/span)*100,widthPct:Math.max(0,((ce-cs)/span)*100),clippedBefore:interval.start<ts,clippedAfter:interval.end>te};}).filter(pos=>pos.widthPct>0);
+  }
+  function barPosition(state,shift){return barPositions(state,shift)[0]||null;}
 
-  return {clone,allStaff,staffById,shiftCatalog,shiftDefinition,managerShiftId,operationalShiftId,coverageGroup,scheduleRules,timelineRules,isDateKey,timeToMinutes,minutesToTime,formatTime,formatDuration,intervalFromTimes,defaultShiftForPerson,rawOverride,getShift,setShift,setOff,setCoverageStatus,clearOverride,clearDay,setShiftDefault,clearShiftDefault,setShiftDays,setShiftSchedule,intervalForShift,intervalForCoverage,overlapMinutes,overlapsForPerson,coverageSegments,crossTeamOverlapSegments,mergeSegments,shiftActiveOnDate,visibleShiftIds,isShiftSupervisor,outToday,dayStats,barPosition};
+  return {clone,allStaff,staffById,shiftCatalog,shiftDefinition,managerShiftId,operationalShiftId,coverageGroup,scheduleRules,timelineRules,isDateKey,timeToMinutes,minutesToTime,formatTime,formatDuration,intervalFromTimes,isoWeekdayForDateKey,defaultShiftForPerson,recurringProfile,recurringShiftForPerson,rawOverride,getShift,setShift,setOff,setCoverageStatus,clearOverride,clearDay,setShiftDefault,clearShiftDefault,setShiftDays,setShiftSchedule,intervalsForShift,intervalsForCoverage,intervalForShift,intervalForCoverage,overlapMinutes,overlapsForPerson,coverageSegments,crossTeamOverlapSegments,mergeSegments,shiftActiveOnDate,visibleShiftIds,isShiftSupervisor,shiftTimeLabel,outToday,outForDates,dayStats,barPositions,barPosition};
 });
