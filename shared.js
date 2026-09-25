@@ -19,7 +19,9 @@
     state.shiftCatalog=(state.shiftCatalog||[]).map(def=>({...seedById[def.id],...def,activeDays:Array.isArray(def.activeDays)?def.activeDays:(seedById[def.id]?.activeDays||[])}));
     state.rules=state.rules||seed.rules||{};
     state.scheduleOverrides=state.scheduleOverrides||{};
-    state.recurringSchedules=state.recurringSchedules||{};
+    // Canonical recurring patterns beat stale browser copies. The API will
+    // replace these with the database copy when it is reachable.
+    state.recurringSchedules={...(state.recurringSchedules||{}),...(seed.recurringSchedules||{})};
     state.coveragePlans=state.coveragePlans||{};
     state.dailyPlans=state.dailyPlans||{};
     return root.DailyPlanLogic?.normalizeState ? root.DailyPlanLogic.normalizeState(state) : state;

@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
-from ..auth import get_current_user, require_supervisor
+from ..auth import require_supervisor
 from ..db import get_db
 from ..models import (
     ShiftScheduleDefault,
@@ -66,7 +66,6 @@ def _profile_payload(db: Session, profile: StaffScheduleProfile) -> dict[str, An
 @router.get("/config")
 def schedule_config(
     db: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
 ) -> dict[str, Any]:
     defaults = db.scalars(
         select(ShiftScheduleDefault).order_by(ShiftScheduleDefault.shift_id)
@@ -131,7 +130,6 @@ def schedule_exceptions(
     date_to: date,
     person_id: str | None = None,
     db: Session = Depends(get_db),
-    _: CurrentUser = Depends(get_current_user),
 ) -> list[dict[str, Any]]:
     if date_to < date_from:
         raise HTTPException(status_code=400, detail="date_to must be on or after date_from")

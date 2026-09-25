@@ -35,6 +35,19 @@
       ]
     },
     {
+      "person_id":"morning-josh",
+      "full_name":"Joshua Benson",
+      "shift_id":"weekend-day",
+      "source":"User-confirmed 2026-09-25",
+      "note":"40-hour Weekend Day pattern; 8 AM-6 PM",
+      "segments":[
+        {"iso_weekday":1,"start_time":"08:00","end_time":"18:00"},
+        {"iso_weekday":5,"start_time":"08:00","end_time":"18:00"},
+        {"iso_weekday":6,"start_time":"08:00","end_time":"18:00"},
+        {"iso_weekday":7,"start_time":"08:00","end_time":"18:00"}
+      ]
+    },
+    {
       "person_id":"mid-krysztof",
       "full_name":"Krysztof Capuras",
       "shift_id":"weekend-mid",
