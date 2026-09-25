@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
 from .routers.ai import router as ai_router
+from .routers.assignments import router as assignments_router
 from .routers.health import router as health_router
 from .routers.state import router as state_router
 from .routers.schedules import router as schedules_router
@@ -41,6 +42,7 @@ def seed_recurring_schedules() -> None:
 
 
 app.include_router(state_router)
+app.include_router(assignments_router)
 app.include_router(schedules_router)
 app.include_router(ai_router)
 app.include_router(workload_router)
