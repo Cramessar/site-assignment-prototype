@@ -3,14 +3,23 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
+
     app_name: str = "Site Assignment API"
     database_url: str = "postgresql+psycopg://site_assignment:site_assignment@db:5432/site_assignment"
+
     auth_mode: str = "dev"
     dev_user_email: str = "supervisor@example.com"
     identity_header: str = "x-user-email"
     bootstrap_admins: str = ""
     bootstrap_supervisors: str = "supervisor@example.com"
-    cors_origins: str = "http://localhost:8080,http://127.0.0.1:8080"
+    cors_origins: str = "http://localhost:8088,http://127.0.0.1:8088"
+
+    ai_enabled: bool = True
+    ai_base_url: str = "http://host.docker.internal:3030/v1"
+    ai_api_key: str = ""
+    ai_model: str = "auto"
+    ai_timeout_seconds: int = 300
+    ai_max_context_chars: int = 60000
 
     @staticmethod
     def _csv(value: str) -> list[str]:
