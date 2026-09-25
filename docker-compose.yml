@@ -1,42 +1,69 @@
+name: shifts
+
 services:
   db:
     image: postgres:16-alpine
+    container_name: shifts-db
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-site_assignment}
       POSTGRES_USER: ${POSTGRES_USER:-site_assignment}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-site_assignment}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - site_assignment_pgdata:/var/lib/postgresql/data
+      - shifts_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL","pg_isready -U ${POSTGRES_USER:-site_assignment} -d ${POSTGRES_DB:-site_assignment}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-site_assignment} -d ${POSTGRES_DB:-site_assignment}"]
       interval: 5s
       timeout: 5s
       retries: 20
+    networks:
+      - shifts-internal
 
   api:
     build:
       context: ./server
+    container_name: shifts-api
     restart: unless-stopped
     env_file:
       - .env
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://site_assignment:site_assignment@db:5432/site_assignment}
+      DATABASE_URL: ${DATABASE_URL}
+      AUTH_MODE: ${AUTH_MODE:-dev}
+      DEV_USER_EMAIL: ${DEV_USER_EMAIL:-supervisor@example.com}
+      IDENTITY_HEADER: ${IDENTITY_HEADER:-x-user-email}
+      BOOTSTRAP_ADMINS: ${BOOTSTRAP_ADMINS:-}
+      BOOTSTRAP_SUPERVISORS: ${BOOTSTRAP_SUPERVISORS:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8088}
+      AI_ENABLED: ${AI_ENABLED:-true}
+      AI_BASE_URL: ${AI_BASE_URL:-http://host.docker.internal:3030/v1}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-auto}
+      AI_TIMEOUT_SECONDS: ${AI_TIMEOUT_SECONDS:-300}
+      AI_MAX_CONTEXT_CHARS: ${AI_MAX_CONTEXT_CHARS:-60000}
     depends_on:
       db:
         condition: service_healthy
-    ports:
-      - "8081:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - shifts-internal
 
   web:
     build:
       context: .
       dockerfile: Dockerfile.web
+    container_name: shifts-web
     restart: unless-stopped
     depends_on:
       - api
     ports:
-      - "8080:80"
+      - "127.0.0.1:${SHIFTS_HTTP_PORT:-8088}:80"
+    networks:
+      - shifts-internal
 
 volumes:
-  site_assignment_pgdata:
+  shifts_pgdata:
+
+networks:
+  shifts-internal:
+    name: shifts-internal
