@@ -301,18 +301,6 @@
       "operationalShiftId": "weekend-day"
     },
     {
-      "id": "mid-bryan",
-      "name": "Bryan",
-      "shift": "mid",
-      "role": "tse",
-      "vacation": true,
-      "fullName": "Bryan",
-      "title": "TSE",
-      "manager": "Stephen",
-      "operationalShiftId": "weekend-mid",
-      "rosterNote": "Retained from the existing coverage prototype; not present in the latest roster table."
-    },
-    {
       "id": "mid-cameron",
       "name": "Cameron",
       "shift": "mid",
@@ -439,7 +427,6 @@
       "WIL-ITC",
       "MID-6039"
     ],
-    "mid-bryan": [],
     "mid-cameron": [
       "BCK-6031",
       "SYM-6017",
@@ -1100,7 +1087,6 @@
     "latestRosterCount": 53,
     "retainedPrototypePeople": [
       "Youssef",
-      "Bryan",
       "Ola",
       "Christopher Ramessar"
     ]
