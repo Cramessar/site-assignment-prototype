@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
@@ -69,4 +69,67 @@ class SiteWorkloadMetric(Base):
 
     __table_args__ = (
         UniqueConstraint("snapshot_id", "site_id", name="uq_site_workload_snapshot_site"),
+    )
+
+
+
+class StaffScheduleProfile(Base):
+    __tablename__ = "staff_schedule_profiles"
+
+    person_id: Mapped[str] = mapped_column(String(120), primary_key=True)
+    full_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    shift_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    replaces_shift_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    source: Mapped[str] = mapped_column(String(80), nullable=False, default="manual")
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class StaffScheduleSegment(Base):
+    __tablename__ = "staff_schedule_segments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    person_id: Mapped[str] = mapped_column(
+        ForeignKey("staff_schedule_profiles.person_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    iso_weekday: Mapped[int] = mapped_column(Integer, nullable=False)
+    segment_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    start_time: Mapped[str] = mapped_column(String(5), nullable=False)
+    end_time: Mapped[str] = mapped_column(String(5), nullable=False)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "person_id",
+            "iso_weekday",
+            "segment_order",
+            name="uq_staff_schedule_segment_person_day_order",
+        ),
+    )
+
+
+class StaffScheduleException(Base):
+    __tablename__ = "staff_schedule_exceptions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    person_id: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    exception_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(40), nullable=False)
+    start_time: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    end_time: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source: Mapped[str] = mapped_column(String(80), nullable=False, default="manual")
+    created_by: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint(
+            "person_id",
+            "exception_date",
+            name="uq_staff_schedule_exception_person_date",
+        ),
     )
