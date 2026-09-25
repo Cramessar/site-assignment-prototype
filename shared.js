@@ -152,5 +152,25 @@
     }catch(e){return false;}
   }
 
-  root.SiteAppState={STORAGE_KEY,load,save,reset,normalize,todayKey,fmtDate,fmtRange,esc,addDays,weekDateKeys,hydrateScheduleData,syncScheduleException,outBannerHTML};
+  async function syncShiftDefault(state,shiftId){
+    const def=state?.shiftCatalog?.find(item=>item.id===shiftId);
+    if(!def)return false;
+    const isoDays=(def.activeDays||[]).map(day=>Number(day)===0?7:Number(day));
+    try{
+      const response=await fetch(`/api/v1/schedules/defaults/${encodeURIComponent(shiftId)}`,{
+        method:'PUT',
+        credentials:'same-origin',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          name:def.name||shiftId,
+          default_start:def.defaultStart||null,
+          default_end:def.defaultEnd||null,
+          active_iso_weekdays:isoDays
+        })
+      });
+      return response.ok;
+    }catch(e){return false;}
+  }
+
+  root.SiteAppState={STORAGE_KEY,load,save,reset,normalize,todayKey,fmtDate,fmtRange,esc,addDays,weekDateKeys,hydrateScheduleData,syncScheduleException,syncShiftDefault,outBannerHTML};
 })(typeof globalThis!=='undefined'?globalThis:this);
