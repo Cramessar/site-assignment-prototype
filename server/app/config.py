@@ -24,13 +24,12 @@ class Settings(BaseSettings):
     ai_timeout_seconds: int = 300
     ai_max_context_chars: int = 60000
 
-    jira_enabled: bool = False
-    jira_base_url: str = "https://symbotic.atlassian.net"
-    jira_email: str = ""
-    jira_api_token: str = ""
-    jira_jql_base: str = "assignee IS NOT EMPTY AND cf[22087] IS NOT EMPTY"
-    jira_page_size: int = 100
-    jira_timeout_seconds: int = 60
+    jira_analytics_enabled: bool = False
+    jira_analytics_base_url: str = "http://host.docker.internal:3201"
+    jira_analytics_refresh_report: bool = True
+    jira_analytics_poll_seconds: int = 5
+    jira_analytics_max_wait_seconds: int = 1800
+    jira_analytics_timeout_seconds: int = 60
 
     workload_timezone: str = "America/New_York"
     workload_refresh_hour: int = 4

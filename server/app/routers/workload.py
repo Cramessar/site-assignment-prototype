@@ -58,7 +58,7 @@ def _snapshot_payload(db: Session, snapshot: WorkloadSnapshot) -> dict[str, Any]
         "generated_at": snapshot.generated_at,
         "sites": [
             {
-                "raw_site": row.site_id,
+                "site_id": row.site_id,
                 "ticket_count": row.ticket_count,
                 "assignment_weight": row.assignment_weight,
                 "monthly_counts": row.monthly_counts,
@@ -136,7 +136,7 @@ async def recommend_assignments(
     weights = {row.site_id: row.assignment_weight for row in metrics}
     site_details = {
         row.site_id: {
-            "raw_site": row.site_id,
+            "site_id": row.site_id,
             "assignment_weight": row.assignment_weight,
             "ticket_count": row.ticket_count,
             "monthly_counts": row.monthly_counts,

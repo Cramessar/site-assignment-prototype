@@ -15,8 +15,12 @@ def _next_month_start(now: datetime, hour: int) -> datetime:
 
 async def _ensure_snapshot() -> None:
     settings = get_settings()
-    if not settings.jira_enabled:
-        print("Jira workload worker is disabled; set JIRA_ENABLED=true to enable monthly refresh.", flush=True)
+    if not settings.jira_analytics_enabled:
+        print(
+            "Jira Analytics workload source is disabled; "
+            "set JIRA_ANALYTICS_ENABLED=true to enable monthly refresh.",
+            flush=True,
+        )
         return
 
     db = SessionLocal()
@@ -25,12 +29,12 @@ async def _ensure_snapshot() -> None:
         print(
             f"Workload snapshot ready: id={snapshot.id} "
             f"{snapshot.period_start} through {snapshot.period_end} "
-            f"issues={snapshot.total_issues} mapped={snapshot.mapped_issues}",
+            f"issues={snapshot.total_issues} source={snapshot.source}",
             flush=True,
         )
     except JiraWorkloadError as exc:
         db.rollback()
-        print(f"Jira workload refresh failed: {exc}", flush=True)
+        print(f"Jira Analytics workload refresh failed: {exc}", flush=True)
     except Exception as exc:
         db.rollback()
         print(f"Unexpected workload refresh failure: {exc}", flush=True)
@@ -42,14 +46,14 @@ async def main() -> None:
     settings = get_settings()
     tz = ZoneInfo(settings.workload_timezone)
 
-    # Catch up immediately after restarts. The snapshot creator is idempotent for a period.
+    # Catch up after restarts. Snapshot creation is idempotent per 3-month period.
     await _ensure_snapshot()
 
     while True:
         now = datetime.now(tz)
         next_run = _next_month_start(now, settings.workload_refresh_hour)
         seconds = max(60, (next_run - now).total_seconds())
-        print(f"Next Jira workload refresh: {next_run.isoformat()}", flush=True)
+        print(f"Next Jira Analytics workload refresh: {next_run.isoformat()}", flush=True)
         await asyncio.sleep(seconds)
         await _ensure_snapshot()
 
