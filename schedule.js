@@ -121,26 +121,59 @@
     }
     const baseInterval = start && end ? intervalFromTimes(start, end) : null;
     if (!baseInterval) {
-      return { start: null, end: null, off: false, coverageStatus: 'working', source: 'unconfigured', unconfigured: true, durationMinutes: 0 };
+      return { start: null, end: null, segments: [], off: false, coverageStatus: 'working', source: 'unconfigured', unconfigured: true, durationMinutes: 0 };
     }
-    return { start, end, off: false, coverageStatus: 'working', source: 'default', unconfigured: false, durationMinutes: baseInterval.end - baseInterval.start };
+    return { start, end, segments:[{start,end}], off: false, coverageStatus: 'working', source: 'default', unconfigured: false, durationMinutes: baseInterval.end - baseInterval.start };
+  }
+
+  function recurringProfile(state, personId) {
+    return state?.recurringSchedules?.[personId] || null;
+  }
+
+  function recurringShiftForPerson(state, personId, dateKey) {
+    const profile=recurringProfile(state,personId),iso=isoWeekdayForDateKey(dateKey);
+    if(!profile||!iso)return null;
+    const segments=(profile.segments||[])
+      .filter(segment=>Number(segment.isoWeekday)===iso)
+      .sort((a,b)=>(Number(a.segmentOrder||0)-Number(b.segmentOrder||0)));
+    if(!segments.length){
+      if(!profile.replacesShiftDefault)return null;
+      return {start:null,end:null,segments:[],off:true,vacation:false,recurringOff:true,coverageStatus:'off',source:'recurring',durationMinutes:0,unconfigured:false};
+    }
+    const valid=segments.map(segment=>({start:segment.start,end:segment.end,interval:intervalFromTimes(segment.start,segment.end)})).filter(x=>x.interval);
+    if(!valid.length)return {start:null,end:null,segments:[],off:false,coverageStatus:'working',source:'recurring',durationMinutes:0,unconfigured:true};
+    return {
+      start:valid[0].start,
+      end:valid[valid.length-1].end,
+      segments:valid.map(x=>({start:x.start,end:x.end})),
+      off:false,
+      coverageStatus:'working',
+      source:'recurring',
+      unconfigured:false,
+      durationMinutes:valid.reduce((sum,x)=>sum+(x.interval.end-x.interval.start),0)
+    };
   }
 
   function rawOverride(state, personId, dateKey) { return isDateKey(dateKey) ? (state?.scheduleOverrides?.[dateKey]?.[personId] || null) : null; }
   function getShift(state, personId, dateKey) {
     const person = staffById(state, personId);
     if (!person) return null;
-    if (person.vacation) return { start:null,end:null,off:true,vacation:true,coverageStatus:'vacation',source:'vacation',durationMinutes:0,unconfigured:false };
+    if (person.vacation) return { start:null,end:null,segments:[],off:true,vacation:true,coverageStatus:'vacation',source:'vacation',durationMinutes:0,unconfigured:false };
     const shiftId = operationalShiftId(state, person);
-    const base = defaultShiftForPerson(state, personId);
-    const override = rawOverride(state, personId, dateKey);
-    if (isDateKey(dateKey) && !shiftActiveOnDate(state, shiftId, dateKey) && !override) return { ...base, start:null, end:null, off:true, vacation:false, inactiveShift:true, coverageStatus:'off', source:'inactive-shift', durationMinutes:0, unconfigured:false };
-    if (!override) return base;
-    if (override.off) return { ...base, ...override, start:null,end:null,off:true,vacation:false,coverageStatus:override.coverageStatus || 'off',source:'override',durationMinutes:0,unconfigured:false };
-    const start = override.start || base.start, end = override.end || base.end;
-    const interval = intervalFromTimes(start, end);
-    if (!interval) return { ...base, source: base.unconfigured ? 'unconfigured' : 'default', invalidOverride:true };
-    return { ...base, ...override, start,end,off:false,vacation:false,coverageStatus:override.coverageStatus || 'working',source:'override',durationMinutes:interval.end-interval.start,unconfigured:false };
+    const recurring=isDateKey(dateKey)?recurringShiftForPerson(state,personId,dateKey):null;
+    const defaultBase=defaultShiftForPerson(state,personId);
+    const base=recurring||defaultBase;
+    const override=rawOverride(state,personId,dateKey);
+    if(!recurring&&isDateKey(dateKey)&&!shiftActiveOnDate(state,shiftId,dateKey)&&!override){
+      return {...defaultBase,start:null,end:null,segments:[],off:true,vacation:false,inactiveShift:true,coverageStatus:'off',source:'inactive-shift',durationMinutes:0,unconfigured:false};
+    }
+    if(!override)return base;
+    const status=override.coverageStatus||(override.off?'off':'working');
+    if(override.off||status==='vacation')return {...base,...override,start:null,end:null,segments:[],off:true,vacation:status==='vacation',coverageStatus:status,source:'override',durationMinutes:0,unconfigured:false};
+    const start=override.start||base?.start,end=override.end||base?.end;
+    const interval=intervalFromTimes(start,end);
+    if(!interval)return {...base,source:base?.unconfigured?'unconfigured':(base?.source||'default'),invalidOverride:true};
+    return {...base,...override,start,end,segments:[{start,end}],off:false,vacation:false,coverageStatus:status,source:'override',durationMinutes:interval.end-interval.start,unconfigured:false};
   }
 
   function ensureOverrides(next, dateKey) {
