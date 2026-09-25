@@ -1,0 +1,19 @@
+{
+  "DOUG-6010": ["DOUG - 6010", "DOU-6010", "Doug - 6010"],
+  "RMNH-6030": ["RHMN-6030", "RHMN - 6030", "RMNH - 6030"],
+  "MRC-6038": ["MCY-6038", "MCY - 6038", "MRC - 6038"],
+  "EXOL-LTH": ["EXOL - LTH", "EXOL-LATH", "EXOL - LATH"],
+  "CS-WNL": ["CS - Windsor Locks", "CS-Winsor Locks", "CS-WNL"],
+  "BETH": ["CS - Beth", "CS-BETH", "Bethlehem"],
+  "GT": ["Giant Tiger", "Giant Tiger (GT)"],
+  "TGT-WOOD": ["Target Wood", "Target-WOOD", "TGT-Wood"],
+  "SGL-LVG": ["SGLV", "SGL-LVG"],
+  "UNFI-CEN": ["UNFI - CEN", "UNFI-CEN"],
+  "UNFI-MNC": ["UNFI - MNC", "UNFI-MNC"],
+  "UNFI-JOL": ["UNFI - JOL", "UNFI-JOL"],
+  "ALB-MP": ["ALB - MP", "ALB-MP"],
+  "ALB-IRV": ["ALB - IRV", "ALB-IRV"],
+  "ALB-TOL": ["ALB - TOL", "ALB-TOL"],
+  "AFS-FRW": ["AFS - FRW", "AFS-FRW"],
+  "WIL-ITC": ["WIL - ITC", "WIL-ITC"]
+}

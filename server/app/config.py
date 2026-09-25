@@ -1,5 +1,7 @@
 from functools import lru_cache
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
@@ -18,8 +20,26 @@ class Settings(BaseSettings):
     ai_base_url: str = "http://host.docker.internal:3030/v1"
     ai_api_key: str = ""
     ai_model: str = "auto"
+    ai_assignment_model: str = "muse-glimmer:latest"
     ai_timeout_seconds: int = 300
     ai_max_context_chars: int = 60000
+
+    jira_enabled: bool = False
+    jira_base_url: str = ""
+    jira_deployment: str = "data_center"
+    jira_auth_mode: str = "bearer"
+    jira_email: str = ""
+    jira_api_token: str = ""
+    jira_bearer_token: str = ""
+    jira_jql_base: str = ""
+    jira_site_field: str = ""
+    jira_page_size: int = 100
+    jira_timeout_seconds: int = 120
+    jira_verify_ssl: bool = True
+    jira_alias_file: str = "/app/config/site_aliases.json"
+
+    workload_timezone: str = "America/New_York"
+    workload_refresh_hour: int = 4
 
     @staticmethod
     def _csv(value: str) -> list[str]:
@@ -36,6 +56,7 @@ class Settings(BaseSettings):
     @property
     def allowed_origins(self) -> list[str]:
         return [item.strip() for item in self.cors_origins.split(",") if item.strip()]
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -5,13 +5,14 @@ from .config import get_settings
 from .routers.ai import router as ai_router
 from .routers.health import router as health_router
 from .routers.state import router as state_router
+from .routers.workload import router as workload_router
 
 settings = get_settings()
 
 app = FastAPI(
     title=settings.app_name,
-    version="0.2.0",
-    description="Shared persistence, audit, and local-AI API for the Site Coverage application.",
+    version="0.3.0",
+    description="Shared persistence, audit, workload, and local-AI API for the Site Coverage application.",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     redoc_url=None,
@@ -29,3 +30,4 @@ if settings.allowed_origins:
 app.include_router(health_router)
 app.include_router(state_router)
 app.include_router(ai_router)
+app.include_router(workload_router)

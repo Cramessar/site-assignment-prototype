@@ -38,8 +38,40 @@ services:
       AI_BASE_URL: ${AI_BASE_URL:-http://host.docker.internal:3030/v1}
       AI_API_KEY: ${AI_API_KEY:-}
       AI_MODEL: ${AI_MODEL:-auto}
+      AI_ASSIGNMENT_MODEL: ${AI_ASSIGNMENT_MODEL:-muse-glimmer:latest}
       AI_TIMEOUT_SECONDS: ${AI_TIMEOUT_SECONDS:-300}
       AI_MAX_CONTEXT_CHARS: ${AI_MAX_CONTEXT_CHARS:-60000}
+      JIRA_ENABLED: ${JIRA_ENABLED:-false}
+      JIRA_BASE_URL: ${JIRA_BASE_URL:-}
+      JIRA_DEPLOYMENT: ${JIRA_DEPLOYMENT:-data_center}
+      JIRA_AUTH_MODE: ${JIRA_AUTH_MODE:-bearer}
+      JIRA_EMAIL: ${JIRA_EMAIL:-}
+      JIRA_API_TOKEN: ${JIRA_API_TOKEN:-}
+      JIRA_BEARER_TOKEN: ${JIRA_BEARER_TOKEN:-}
+      JIRA_JQL_BASE: ${JIRA_JQL_BASE:-}
+      JIRA_SITE_FIELD: ${JIRA_SITE_FIELD:-}
+      JIRA_PAGE_SIZE: ${JIRA_PAGE_SIZE:-100}
+      JIRA_TIMEOUT_SECONDS: ${JIRA_TIMEOUT_SECONDS:-120}
+      JIRA_VERIFY_SSL: ${JIRA_VERIFY_SSL:-true}
+      JIRA_ALIAS_FILE: ${JIRA_ALIAS_FILE:-/app/config/site_aliases.json}
+      WORKLOAD_TIMEZONE: ${WORKLOAD_TIMEZONE:-America/New_York}
+      WORKLOAD_REFRESH_HOUR: ${WORKLOAD_REFRESH_HOUR:-4}
+    depends_on:
+      db:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - shifts-internal
+
+  workload-worker:
+    build:
+      context: ./server
+    container_name: shifts-workload-worker
+    restart: unless-stopped
+    command: ["sh", "-c", "alembic upgrade head && python -m app.workers.monthly_workload"]
+    env_file:
+      - .env
     depends_on:
       db:
         condition: service_healthy
