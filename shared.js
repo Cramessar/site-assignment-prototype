@@ -33,7 +33,15 @@
     }catch(e){}
     return normalize(seedState());
   }
-  function save(state){const normalized=normalize(state);localStorage.setItem(STORAGE_KEY,JSON.stringify(normalized));return normalized;}
+  function save(state){
+    const normalized=normalize(state);
+    const browserCopy=clone(normalized);
+    // Published assignments belong to PostgreSQL, never browser persistence.
+    browserCopy.weeklyCoveragePlans={};
+    delete browserCopy.assignmentSync;
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(browserCopy));
+    return normalized;
+  }
   function reset(){const s=normalize(seedState());save(s);return s;}
   function todayKey(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
   function fmtDate(key,opts={}){const [y,m,d]=String(key||'').split('-').map(Number);const date=new Date(y,m-1,d,12);return date.toLocaleDateString([],{month:'short',day:'numeric',...opts});}
@@ -261,6 +269,11 @@
           const body=await response.json();
           message=body?.detail?.message||body?.detail||message;
         }catch(e){}
+        if(response.status===401){
+          message='Publish was blocked because the API did not receive an authenticated identity. Check Cloudflare Access / AUTH_MODE.';
+        }else if(response.status===403){
+          message='Publish was blocked because this account is not configured as a supervisor or admin.';
+        }
         return {ok:false,state:normalize(state),error:String(message)};
       }
 
