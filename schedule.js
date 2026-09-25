@@ -193,10 +193,13 @@
     return next;
   }
   function setCoverageStatus(state, personId, dateKey, coverageStatus) {
-    const allowed=new Set(['working','training','meeting','unavailable']); const next=clone(state);
+    const allowed=new Set(['working','training','meeting','unavailable','vacation']); const next=clone(state);
     if(!staffById(next,personId)||!isDateKey(dateKey)||!allowed.has(coverageStatus)) return next;
     ensureOverrides(next,dateKey); const existing=next.scheduleOverrides[dateKey][personId]||{}; const base=defaultShiftForPerson(next,personId);
-    next.scheduleOverrides[dateKey][personId]={...existing,start:existing.start||base.start,end:existing.end||base.end,off:false,coverageStatus}; return next;
+    next.scheduleOverrides[dateKey][personId]=coverageStatus==='vacation'
+      ? {off:true,coverageStatus:'vacation'}
+      : {...existing,start:existing.start||base?.start,end:existing.end||base?.end,off:false,coverageStatus};
+    return next;
   }
   function clearOverride(state, personId, dateKey) { const next=clone(state); if(!next.scheduleOverrides?.[dateKey])return next; delete next.scheduleOverrides[dateKey][personId]; if(!Object.keys(next.scheduleOverrides[dateKey]).length)delete next.scheduleOverrides[dateKey]; return next; }
   function clearDay(state,dateKey){const next=clone(state);if(next.scheduleOverrides?.[dateKey])delete next.scheduleOverrides[dateKey];return next;}
