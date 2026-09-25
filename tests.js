@@ -87,8 +87,8 @@ assert.strictEqual(CB.isPlanStale(publishedMulti, '2026-09-01', CB.publishedPlan
 
 // TSA layer: every active engineer gets exactly one primary pairing and full real-time coverage.
 const td = L.tsaDiagnostics(balanced);
-assert.strictEqual(td.activeEngineerCount, 8, 'David and Bryan are out, leaving eight active engineers');
-assert.strictEqual(td.coveredPrimaryCount, 8, 'Every active engineer should have primary TSA coverage');
+assert.strictEqual(td.activeEngineerCount, 9, 'Only legacy Bryan is out in the fallback seed, leaving nine active engineers');
+assert.strictEqual(td.coveredPrimaryCount, 9, 'Every active engineer should have primary TSA coverage');
 assert.deepStrictEqual(td.missingPrimary, [], 'No active engineer should miss a primary TSA');
 assert.deepStrictEqual(td.duplicatePrimary, [], 'Each active engineer should have one primary TSA');
 assert.deepStrictEqual(td.uncoveredWindows, [], 'Every active engineer should have TSA coverage throughout their shift');
