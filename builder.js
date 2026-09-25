@@ -13,10 +13,15 @@
   if(draft){$('builderStatus').className='badge warning';$('builderStatus').textContent='Preview ready';}else if(published){const stale=C.weeklyPlanStale(state,published);$('builderStatus').className=`badge ${stale?'warning':'success'}`;$('builderStatus').textContent=stale?'Published • refresh needed':'Published';}else{$('builderStatus').className='badge';$('builderStatus').textContent='Not published';}
   if(plan){$('previewLegend').innerHTML=V.legend();$('previewTable').innerHTML=V.table(state,plan);$('previewHandoffs').innerHTML=V.handoffStrip(state,plan);renderHealth(plan);}else{$('previewLegend').innerHTML='';$('previewTable').innerHTML='<div class="empty-panel"><strong>Generate a plan to preview assignments.</strong><span>The published plan will persist for the full operational week.</span></div>';$('previewHandoffs').innerHTML='';renderHealth(null);}
  }
- $('builderDate').addEventListener('change',e=>{dateKey=e.target.value||dateKey;selected=[];draft=null;render();});
+ async function hydrateAndRender(){
+   const dates=A.weekDateKeys(dateKey);
+   state=await A.hydrateScheduleData(state,dates[0],dates[dates.length-1]);
+   render();
+ }
+ $('builderDate').addEventListener('change',e=>{dateKey=e.target.value||dateKey;selected=[];draft=null;hydrateAndRender();});
  $('useSuggested').addEventListener('click',()=>{selected=suggested();draft=null;render();});
  $('generateBtn').addEventListener('click',()=>{if(!selected.length)return;draft=C.generateWeeklyPlan(state,dateKey,selected);render();});
  $('publishBtn').addEventListener('click',()=>{if(!draft)return;state=A.save(C.publishWeeklyPlan(state,draft));draft=null;render();});
  $('clearBtn').addEventListener('click',()=>{const p=currentPublished();if(!p)return;state=A.save(C.clearWeeklyPlan(state,p));draft=null;render();});
- render();
+ hydrateAndRender();
 })();
