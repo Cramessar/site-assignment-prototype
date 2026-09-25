@@ -222,15 +222,39 @@
     return next;
   }
 
-  function intervalForShift(shift){if(!shift||shift.off||shift.vacation||shift.unconfigured)return null;return intervalFromTimes(shift.start,shift.end);}
-  function intervalForCoverage(shift){if(!shift||shift.off||shift.vacation||(shift.coverageStatus||'working')!=='working')return null;return intervalForShift(shift);}
-  function overlapMinutes(a,b){const l=intervalForShift(a),r=intervalForShift(b);return !l||!r?0:Math.max(0,Math.min(l.end,r.end)-Math.max(l.start,r.start));}
-  function overlapsForPerson(state,personId,dateKey){const own=getShift(state,personId,dateKey);if(!intervalForShift(own))return[];return allStaff(state).filter(p=>p.id!==personId).map(person=>{const shift=getShift(state,person.id,dateKey);return{person,shift,minutes:overlapMinutes(own,shift)}}).filter(x=>x.minutes>0).sort((a,b)=>(b.minutes-a.minutes)||a.person.name.localeCompare(b.person.name));}
+  function intervalsForShift(shift){
+    if(!shift||shift.off||shift.vacation||shift.unconfigured)return[];
+    const segments=Array.isArray(shift.segments)&&shift.segments.length?shift.segments:(shift.start&&shift.end?[{start:shift.start,end:shift.end}]:[]);
+    return segments.map(segment=>intervalFromTimes(segment.start,segment.end)).filter(Boolean);
+  }
+  function intervalsForCoverage(shift){
+    if(!shift||shift.off||shift.vacation||(shift.coverageStatus||'working')!=='working')return[];
+    return intervalsForShift(shift);
+  }
+  function intervalForShift(shift){
+    const intervals=intervalsForShift(shift);
+    if(!intervals.length)return null;
+    return {start:Math.min(...intervals.map(x=>x.start)),end:Math.max(...intervals.map(x=>x.end))};
+  }
+  function intervalForCoverage(shift){
+    const intervals=intervalsForCoverage(shift);
+    if(!intervals.length)return null;
+    return {start:Math.min(...intervals.map(x=>x.start)),end:Math.max(...intervals.map(x=>x.end))};
+  }
+  function overlapMinutes(a,b){
+    const left=intervalsForShift(a),right=intervalsForShift(b);let total=0;
+    left.forEach(l=>right.forEach(r=>{total+=Math.max(0,Math.min(l.end,r.end)-Math.max(l.start,r.start));}));
+    return total;
+  }
+  function overlapsForPerson(state,personId,dateKey){
+    const own=getShift(state,personId,dateKey);if(!intervalsForShift(own).length)return[];
+    return allStaff(state).filter(p=>p.id!==personId).map(person=>{const shift=getShift(state,person.id,dateKey);return{person,shift,minutes:overlapMinutes(own,shift)}}).filter(x=>x.minutes>0).sort((a,b)=>(b.minutes-a.minutes)||a.person.name.localeCompare(b.person.name));
+  }
 
   function coverageSegments(intervals){const points=[];intervals.forEach(i=>{if(!i)return;points.push({at:i.start,delta:1},{at:i.end,delta:-1})});points.sort((a,b)=>(a.at-b.at)||(a.delta-b.delta));if(!points.length)return[];const out=[];let count=0,last=points[0].at,i=0;while(i<points.length){const at=points[i].at;if(at>last&&count>0)out.push({start:last,end:at,count});while(i<points.length&&points[i].at===at){count+=points[i].delta;i++}last=at}return out;}
   function crossTeamOverlapSegments(state,dateKey){
-    const m=allStaff(state).filter(p=>coverageGroup(p)==='morning').map(p=>intervalForShift(getShift(state,p.id,dateKey))).filter(Boolean);
-    const d=allStaff(state).filter(p=>coverageGroup(p)==='mid').map(p=>intervalForShift(getShift(state,p.id,dateKey))).filter(Boolean);
+    const m=allStaff(state).filter(p=>coverageGroup(p)==='morning').flatMap(p=>intervalsForShift(getShift(state,p.id,dateKey)));
+    const d=allStaff(state).filter(p=>coverageGroup(p)==='mid').flatMap(p=>intervalsForShift(getShift(state,p.id,dateKey)));
     const mc=coverageSegments(m),dc=coverageSegments(d),out=[];mc.forEach(a=>dc.forEach(b=>{const start=Math.max(a.start,b.start),end=Math.min(a.end,b.end);if(end>start)out.push({start,end,morningCount:a.count,midCount:b.count})}));return out;
   }
   function mergeSegments(segments){const sorted=segments.slice().sort((a,b)=>a.start-b.start||a.end-b.end),out=[];sorted.forEach(s=>{const last=out[out.length-1];if(last&&s.start<=last.end)last.end=Math.max(last.end,s.end);else out.push({start:s.start,end:s.end})});return out;}
