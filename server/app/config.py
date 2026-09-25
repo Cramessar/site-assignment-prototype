@@ -25,18 +25,12 @@ class Settings(BaseSettings):
     ai_max_context_chars: int = 60000
 
     jira_enabled: bool = False
-    jira_base_url: str = ""
-    jira_deployment: str = "data_center"
-    jira_auth_mode: str = "bearer"
+    jira_base_url: str = "https://symbotic.atlassian.net"
     jira_email: str = ""
     jira_api_token: str = ""
-    jira_bearer_token: str = ""
-    jira_jql_base: str = ""
-    jira_site_field: str = ""
+    jira_jql_base: str = "assignee IS NOT EMPTY AND cf[22087] IS NOT EMPTY"
     jira_page_size: int = 100
-    jira_timeout_seconds: int = 120
-    jira_verify_ssl: bool = True
-    jira_alias_file: str = "/app/config/site_aliases.json"
+    jira_timeout_seconds: int = 60
 
     workload_timezone: str = "America/New_York"
     workload_refresh_hour: int = 4
