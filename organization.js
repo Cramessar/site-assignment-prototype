@@ -11,6 +11,18 @@
   $('leadershipSummary').innerHTML=supervisors.map(d=>`<div><strong>${esc(d.supervisorName)}</strong><span>${esc(d.name)} • reports to Tony</span></div>`).join('')+`<div><strong>Tony Rodriguez</strong><span>Manager</span></div><div><strong>Michael Westfield</strong><span>Manager • Commissioning</span></div>`;
   document.querySelectorAll('[data-org-save]').forEach(btn=>btn.addEventListener('click',()=>saveShift(btn.dataset.orgSave)));
  }
- function saveShift(id){const start=document.querySelector(`[data-org-start="${id}"]`).value,end=document.querySelector(`[data-org-end="${id}"]`).value;const days=[...document.querySelectorAll(`[data-org-day="${id}"]:checked`)].map(x=>Number(x.value));if(!S.intervalFromTimes(start,end)){alert('Enter a valid start and end time. Overnight shifts are supported.');return;}state=A.save(S.setShiftSchedule(state,id,start,end,days));render();}
- render();
+ async function saveShift(id){
+  const start=document.querySelector(`[data-org-start="${id}"]`).value,end=document.querySelector(`[data-org-end="${id}"]`).value;
+  const days=[...document.querySelectorAll(`[data-org-day="${id}"]:checked`)].map(x=>Number(x.value));
+  if(!S.intervalFromTimes(start,end)){alert('Enter a valid start and end time. Overnight shifts are supported.');return;}
+  state=A.save(S.setShiftSchedule(state,id,start,end,days));
+  const saved=await A.syncShiftDefault(state,id);
+  if(!saved)alert('The shift changed in this browser, but the shared database update failed.');
+  render();
+ }
+ async function hydrateAndRender(){
+  state=await A.hydrateScheduleData(state);
+  render();
+ }
+ hydrateAndRender();
 })();
