@@ -62,6 +62,7 @@
           };
         });
         next.shiftCatalog=Object.values(byId);
+        ['people','supportAdmins','directoryPeople'].forEach(group=>(next[group]||[]).forEach(person=>{person.vacation=false;}));
         next.recurringSchedules={};
         (config.profiles||[]).forEach(profile=>{
           next.recurringSchedules[profile.person_id]={
@@ -84,6 +85,13 @@
     }catch(e){}
 
     if(dateFrom&&dateTo){
+      Object.keys(next.scheduleOverrides||{}).forEach(key=>{
+        if(key<dateFrom||key>dateTo)return;
+        Object.keys(next.scheduleOverrides[key]||{}).forEach(personId=>{
+          if(next.scheduleOverrides[key][personId]?.source==='database')delete next.scheduleOverrides[key][personId];
+        });
+        if(!Object.keys(next.scheduleOverrides[key]||{}).length)delete next.scheduleOverrides[key];
+      });
       try{
         const params=new URLSearchParams({date_from:dateFrom,date_to:dateTo});
         const response=await fetch(`/api/v1/schedules/exceptions?${params.toString()}`,{credentials:'same-origin'});
