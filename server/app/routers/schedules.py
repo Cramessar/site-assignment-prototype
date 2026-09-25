@@ -19,6 +19,13 @@ from ..schemas import CurrentUser
 router = APIRouter(prefix="/api/v1/schedules", tags=["schedules"])
 
 
+class ShiftDefaultBody(BaseModel):
+    name: str | None = Field(default=None, max_length=120)
+    default_start: str | None = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    default_end: str | None = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    active_iso_weekdays: list[int] = Field(default_factory=list)
+
+
 class ScheduleExceptionBody(BaseModel):
     status: str = Field(pattern="^(vacation|off|unavailable|training|meeting|working)$")
     start_time: str | None = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
@@ -80,6 +87,41 @@ def schedule_config(
             for row in defaults
         ],
         "profiles": [_profile_payload(db, row) for row in profiles],
+    }
+
+
+@router.put("/defaults/{shift_id}")
+def put_shift_default(
+    shift_id: str,
+    body: ShiftDefaultBody,
+    db: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_supervisor),
+) -> dict[str, Any]:
+    weekdays=sorted({int(day) for day in body.active_iso_weekdays if 1 <= int(day) <= 7})
+    row=db.get(ShiftScheduleDefault,shift_id)
+    if row is None:
+        row=ShiftScheduleDefault(
+            shift_id=shift_id,
+            name=body.name or shift_id,
+            default_start=body.default_start,
+            default_end=body.default_end,
+            active_iso_weekdays=weekdays,
+        )
+        db.add(row)
+    else:
+        if body.name:
+            row.name=body.name
+        row.default_start=body.default_start
+        row.default_end=body.default_end
+        row.active_iso_weekdays=weekdays
+    db.commit()
+    db.refresh(row)
+    return {
+        "shift_id":row.shift_id,
+        "name":row.name,
+        "default_start":row.default_start,
+        "default_end":row.default_end,
+        "active_iso_weekdays":row.active_iso_weekdays,
     }
 
 
