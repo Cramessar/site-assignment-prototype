@@ -286,3 +286,23 @@ assert.ok(tsaEffective.windows.every(w => !(w.activeAdmins || []).includes('tsa-
 assert.ok(tsaEffective.windows.every(w => !Object.values(w.tsaByEngineer || {}).includes('tsa-amin')), 'Unavailable TSA responsibilities should be redistributed to working TSAs');
 
 console.log('All prototype v10.2 daily status redistribution tests passed.');
+
+
+// Daily public availability banner data should include explicit absences only.
+const outState = S.setCoverageStatus(
+  S.setOff(
+    S.setCoverageStatus(seed, 'morning-chad', '2026-09-05', 'training'),
+    'mid-cameron',
+    '2026-09-05',
+    true
+  ),
+  'mid-garett',
+  '2026-09-05',
+  'unavailable'
+);
+const outRows = S.outToday(outState, '2026-09-05');
+assert.ok(outRows.some(x => x.person.id === 'morning-david' && x.status === 'vacation'), 'Vacation should appear in out-today data');
+assert.ok(outRows.some(x => x.person.id === 'morning-chad' && x.status === 'training'), 'Training should appear in out-today data');
+assert.ok(outRows.some(x => x.person.id === 'mid-cameron' && x.status === 'off'), 'Explicit Off should appear in out-today data');
+assert.ok(outRows.some(x => x.person.id === 'mid-garett' && x.status === 'unavailable'), 'Unavailable should appear in out-today data');
+assert.ok(!outRows.some(x => x.person.id === 'roster-matthew-weimer'), 'Normal inactive shifts must not be mislabeled as out today');

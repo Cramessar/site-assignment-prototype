@@ -36,5 +36,17 @@
   function fmtDate(key,opts={}){const [y,m,d]=String(key||'').split('-').map(Number);const date=new Date(y,m-1,d,12);return date.toLocaleDateString([],{month:'short',day:'numeric',...opts});}
   function fmtRange(start,end){return start===end?fmtDate(start,{weekday:'short',year:'numeric'}):`${fmtDate(start,{weekday:'short'})} – ${fmtDate(end,{weekday:'short',year:'numeric'})}`;}
   function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
-  root.SiteAppState={STORAGE_KEY,load,save,reset,normalize,todayKey,fmtDate,fmtRange,esc};
+  function outBannerHTML(state,dateKey){
+    const S=root.SiteScheduleLogic;
+    const rows=S?.outToday ? S.outToday(state,dateKey) : [];
+    if(!rows.length)return '';
+    const today=dateKey===todayKey();
+    const title=today?'Out today':`Out ${fmtDate(dateKey,{weekday:'short'})}`;
+    const chips=rows.map(({person,label,shiftId,status})=>{
+      const shift=S.shiftDefinition(state,shiftId)?.name||'';
+      return `<div class="out-person out-${esc(status)}"><div><strong>${esc(person.fullName||person.name)}</strong><small>${esc(shift)}</small></div><span>${esc(label)}</span></div>`;
+    }).join('');
+    return `<section class="out-banner" role="status" aria-label="${esc(title)}"><div class="out-banner-head"><div><span class="out-kicker">Availability</span><strong>${esc(title)}</strong></div><span class="out-count">${rows.length}</span></div><div class="out-people">${chips}</div><p>These team members are not available for normal coverage on the selected day.</p></section>`;
+  }
+  root.SiteAppState={STORAGE_KEY,load,save,reset,normalize,todayKey,fmtDate,fmtRange,esc,outBannerHTML};
 })(typeof globalThis!=='undefined'?globalThis:this);

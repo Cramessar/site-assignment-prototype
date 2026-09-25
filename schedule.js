@@ -201,6 +201,31 @@
   }
   function mergeSegments(segments){const sorted=segments.slice().sort((a,b)=>a.start-b.start||a.end-b.end),out=[];sorted.forEach(s=>{const last=out[out.length-1];if(last&&s.start<=last.end)last.end=Math.max(last.end,s.end);else out.push({start:s.start,end:s.end})});return out;}
 
+  function outToday(state,dateKey) {
+    if (!isDateKey(dateKey)) return [];
+    const labels = {
+      vacation: 'Vacation',
+      off: 'Off',
+      unavailable: 'Unavailable',
+      training: 'Training',
+      meeting: 'Meeting'
+    };
+    return allStaff(state).map(person => {
+      if (person.vacation) {
+        return { person, status: 'vacation', label: labels.vacation, shiftId: operationalShiftId(state, person) };
+      }
+      const override = rawOverride(state, person.id, dateKey);
+      if (!override) return null;
+      const status = override.off ? (override.coverageStatus || 'off') : (override.coverageStatus || 'working');
+      if (!labels[status]) return null;
+      return { person, status, label: labels[status], shiftId: operationalShiftId(state, person) };
+    }).filter(Boolean).sort((a,b) => {
+      const shiftA = shiftDefinition(state,a.shiftId)?.name || a.shiftId || '';
+      const shiftB = shiftDefinition(state,b.shiftId)?.name || b.shiftId || '';
+      return shiftA.localeCompare(shiftB) || (a.person.fullName || a.person.name).localeCompare(b.person.fullName || b.person.name);
+    });
+  }
+
   function dayStats(state,dateKey){
     const rows=allStaff(state).map(person=>({person,shift:getShift(state,person.id,dateKey)}));
     const activeRows=rows.filter(r=>intervalForShift(r.shift));
@@ -214,5 +239,5 @@
 
   function barPosition(state,shift){const interval=intervalForShift(shift);if(!interval)return null;const t=timelineRules(state),ts=timeToMinutes(t.start),te=timeToMinutes(t.end),span=Math.max(1,te-ts),cs=Math.max(ts,Math.min(te,interval.start)),ce=Math.max(ts,Math.min(te,interval.end));return{leftPct:((cs-ts)/span)*100,widthPct:Math.max(0,((ce-cs)/span)*100),clippedBefore:interval.start<ts,clippedAfter:interval.end>te};}
 
-  return {clone,allStaff,staffById,shiftCatalog,shiftDefinition,managerShiftId,operationalShiftId,coverageGroup,scheduleRules,timelineRules,isDateKey,timeToMinutes,minutesToTime,formatTime,formatDuration,intervalFromTimes,defaultShiftForPerson,rawOverride,getShift,setShift,setOff,setCoverageStatus,clearOverride,clearDay,setShiftDefault,clearShiftDefault,setShiftDays,setShiftSchedule,intervalForShift,intervalForCoverage,overlapMinutes,overlapsForPerson,coverageSegments,crossTeamOverlapSegments,mergeSegments,shiftActiveOnDate,visibleShiftIds,isShiftSupervisor,dayStats,barPosition};
+  return {clone,allStaff,staffById,shiftCatalog,shiftDefinition,managerShiftId,operationalShiftId,coverageGroup,scheduleRules,timelineRules,isDateKey,timeToMinutes,minutesToTime,formatTime,formatDuration,intervalFromTimes,defaultShiftForPerson,rawOverride,getShift,setShift,setOff,setCoverageStatus,clearOverride,clearDay,setShiftDefault,clearShiftDefault,setShiftDays,setShiftSchedule,intervalForShift,intervalForCoverage,overlapMinutes,overlapsForPerson,coverageSegments,crossTeamOverlapSegments,mergeSegments,shiftActiveOnDate,visibleShiftIds,isShiftSupervisor,outToday,dayStats,barPosition};
 });

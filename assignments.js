@@ -15,6 +15,7 @@
  }
  function render(){
    $('assignmentDate').value=dateKey;
+   $('outBanner').innerHTML=A.outBannerHTML(state,dateKey);
    const plans=planChoices();
    $('planSelect').innerHTML=plans.length?plans.map(p=>`<option value="${esc(p.periodKey)}">${esc((p.selectedShiftIds||[]).map(id=>S.shiftDefinition(state,id)?.name||id).join(' + '))} • ${esc(A.fmtRange(p.periodStart,p.periodEnd))}</option>`).join(''):'<option value="">No published plan for this date</option>';
    const plan=currentPlan();if(plan)$('planSelect').value=plan.periodKey;
