@@ -56,20 +56,20 @@ Weekend Day + Weekend Mid still preserves the approved ~60/40 ticket-workload sp
 
 ## Persistence
 
-The prototype still uses browser `localStorage`. v10 uses `site-coverage-manager-v10` and can migrate state from the v9 local-storage key on first load.
+The containerized application uses PostgreSQL for shared operational data.
 
-A shared backend/database is still required before multiple supervisors and team members on different computers can see the same live state.
+Shared/server-backed data includes:
 
-## Tests
+- published weekly site assignments
+- recurring employee schedules and shift defaults
+- dated Vacation / Off / Unavailable / Training / Meeting exceptions
+- rolling Jira workload snapshots
 
-Run:
+Published site assignments are **server-authoritative**. A browser-local copy is never used as a fallback when the assignment API is unavailable.
 
-```powershell
-node tests.js
-```
+`localStorage` remains only for temporary/client-side UI state and draft work that has not been published. A generated assignment is private until the supervisor clicks **Publish**; once published, PostgreSQL is the source of truth for every browser.
 
-Tests cover the original 38-site assignment engine, TSA logic, scheduling, configurable shift days/hours, multi-shift coverage, overnight shifts, supervisor inheritance, and v10 operational-week persistence.
-
+During active development the nginx container sends `Cache-Control: no-store` so browsers do not continue running an older JavaScript bundle after a deployment.
 
 ## v10.1 hotfix
 - Restored Vacation / Return from vacation controls in Staffing Editor.
