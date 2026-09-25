@@ -56,10 +56,20 @@ notepad .env
 At minimum change:
 
 - `POSTGRES_PASSWORD`
-- `DATABASE_URL` so it contains the same password
-- `DEV_USER_EMAIL`
+- `DATABASE_URL` so it contains the same URL-safe password
 - `BOOTSTRAP_SUPERVISORS`
 - `AI_API_KEY`
+
+The self-host example defaults to `AUTH_MODE=proxy` with `IDENTITY_HEADER=cf-access-authenticated-user-email`. **Before publishing the hostname, put the entire `shifts.ramessar.io` application behind a Cloudflare Access policy.**
+
+For localhost-only development, you can temporarily use:
+
+```text
+AUTH_MODE=dev
+DEV_USER_EMAIL=your-email@example.com
+```
+
+Do not use dev auth on the public hostname.
 
 The AI key should be one of the existing `rsk_*` Bearer keys from the Ramessar API gateway. Do not commit `.env`.
 
@@ -82,6 +92,8 @@ Open locally:
 - Health: http://localhost:8088/healthz
 
 ## Cloudflare Tunnel
+
+First create a **Cloudflare Access application/policy** for `shifts.ramessar.io` so only approved users can reach the site. Then configure the Tunnel public hostname.
 
 If `cloudflared` runs directly on the Windows host, create a public hostname:
 
