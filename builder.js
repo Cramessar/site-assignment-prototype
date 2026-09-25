@@ -10,7 +10,21 @@
  function renderHealth(plan){if(!plan){$('healthRow').innerHTML='';return;}const h=C.health(state,plan),stale=C.weeklyPlanStale(state,plan);$('healthRow').innerHTML=[`<div class="health-card ${h.issues.length?'bad':'good'}"><strong>Site coverage</strong><small>${esc(h.issues.join(' • ')||'All 38 sites covered in every generated window.')}</small></div>`,`<div class="health-card ${h.warnings.some(x=>x.includes('TSA'))?'warn':'good'}"><strong>TSA coverage</strong><small>${esc(h.warnings.filter(x=>x.includes('TSA')).join(' • ')||'TSA support assigned wherever active TSA staffing is available.')}</small></div>`,`<div class="health-card ${stale?'warn':'good'}"><strong>Weekly stability</strong><small>${stale?'Shift defaults, vacations, or workload rules changed after this plan was generated. Regenerate before publishing.':'Base weekly plan matches current shift defaults and staffing.'}</small></div>`].join('');}
  function render(){
   $('builderDate').value=dateKey;renderChoices();renderPeriod();const published=currentPublished(),plan=draft||published;$('publishBtn').disabled=!draft;$('clearBtn').disabled=!published;
-  if(draft){$('builderStatus').className='badge warning';$('builderStatus').textContent='Preview ready';}else if(published){const stale=C.weeklyPlanStale(state,published);$('builderStatus').className=`badge ${stale?'warning':'success'}`;$('builderStatus').textContent=stale?'Published • refresh needed':'Published';}else{$('builderStatus').className='badge';$('builderStatus').textContent='Not published';}
+  const sync=state.assignmentSync;
+  if(sync?.status==='error'){
+    $('builderStatus').className='badge danger';
+    $('builderStatus').textContent='Shared assignment server unavailable';
+  }else if(draft){
+    $('builderStatus').className='badge warning';
+    $('builderStatus').textContent='Preview ready • not published';
+  }else if(published){
+    const stale=C.weeklyPlanStale(state,published);
+    $('builderStatus').className=`badge ${stale?'warning':'success'}`;
+    $('builderStatus').textContent=stale?'Published globally • refresh needed':'Published globally';
+  }else{
+    $('builderStatus').className='badge';
+    $('builderStatus').textContent='Not published';
+  }
   if(plan){$('previewLegend').innerHTML=V.legend();$('previewTable').innerHTML=V.table(state,plan);$('previewHandoffs').innerHTML=V.handoffStrip(state,plan);renderHealth(plan);}else{$('previewLegend').innerHTML='';$('previewTable').innerHTML='<div class="empty-panel"><strong>Generate a plan to preview assignments.</strong><span>The published plan will persist for the full operational week.</span></div>';$('previewHandoffs').innerHTML='';renderHealth(null);}
  }
  async function hydrateAndRender(){
@@ -28,6 +42,7 @@
    $('publishBtn').disabled=true;
    const result=await A.publishGlobalAssignmentPlan(state,draft);
    if(!result.ok){
+     state=result.state||state;
      alert(result.error||'Could not publish the assignment plan.');
      render();
      return;
@@ -41,6 +56,7 @@
    $('clearBtn').disabled=true;
    const result=await A.deleteGlobalAssignmentPlan(state,p.periodKey,dateKey);
    if(!result.ok){
+     state=result.state||state;
      alert(result.error||'Could not remove the published assignment plan.');
      render();
      return;
