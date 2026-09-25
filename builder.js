@@ -16,12 +16,38 @@
  async function hydrateAndRender(){
    const dates=A.weekDateKeys(dateKey);
    state=await A.hydrateScheduleData(state,dates[0],dates[dates.length-1]);
+   state=await A.hydratePublishedAssignments(state,dateKey);
+   state=A.save(state);
    render();
  }
  $('builderDate').addEventListener('change',e=>{dateKey=e.target.value||dateKey;selected=[];draft=null;hydrateAndRender();});
  $('useSuggested').addEventListener('click',()=>{selected=suggested();draft=null;render();});
  $('generateBtn').addEventListener('click',()=>{if(!selected.length)return;draft=C.generateWeeklyPlan(state,dateKey,selected);render();});
- $('publishBtn').addEventListener('click',()=>{if(!draft)return;state=A.save(C.publishWeeklyPlan(state,draft));draft=null;render();});
- $('clearBtn').addEventListener('click',()=>{const p=currentPublished();if(!p)return;state=A.save(C.clearWeeklyPlan(state,p));draft=null;render();});
+ $('publishBtn').addEventListener('click',async()=>{
+   if(!draft)return;
+   $('publishBtn').disabled=true;
+   const result=await A.publishGlobalAssignmentPlan(state,draft);
+   if(!result.ok){
+     alert(result.error||'Could not publish the assignment plan.');
+     render();
+     return;
+   }
+   state=result.state;
+   draft=null;
+   render();
+ });
+ $('clearBtn').addEventListener('click',async()=>{
+   const p=currentPublished();if(!p)return;
+   $('clearBtn').disabled=true;
+   const result=await A.deleteGlobalAssignmentPlan(state,p.periodKey,dateKey);
+   if(!result.ok){
+     alert(result.error||'Could not remove the published assignment plan.');
+     render();
+     return;
+   }
+   state=result.state;
+   draft=null;
+   render();
+ });
  hydrateAndRender();
 })();

@@ -182,5 +182,72 @@
     }catch(e){return false;}
   }
 
-  root.SiteAppState={STORAGE_KEY,load,save,reset,normalize,todayKey,fmtDate,fmtRange,esc,addDays,weekDateKeys,hydrateScheduleData,syncScheduleException,syncShiftDefault,outBannerHTML};
+  async function hydratePublishedAssignments(state,dateKey){
+    let next=normalize(state);
+    const params=new URLSearchParams();
+    if(dateKey)params.set('date',dateKey);
+    try{
+      const response=await fetch(`/api/v1/assignments/published${params.toString()?`?${params.toString()}`:''}`,{
+        credentials:'same-origin'
+      });
+      if(!response.ok)return next;
+      const plans=await response.json();
+      next.weeklyCoveragePlans=Object.fromEntries(
+        (Array.isArray(plans)?plans:[])
+          .filter(plan=>plan&&plan.periodKey)
+          .map(plan=>[plan.periodKey,plan])
+      );
+      return normalize(next);
+    }catch(e){
+      return next;
+    }
+  }
+
+  async function publishGlobalAssignmentPlan(state,plan){
+    if(!plan?.periodKey)return {ok:false,state:normalize(state),error:'Plan has no period key.'};
+    try{
+      const response=await fetch(`/api/v1/assignments/published/${encodeURIComponent(plan.periodKey)}`,{
+        method:'PUT',
+        credentials:'same-origin',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({plan})
+      });
+      if(!response.ok){
+        let message=`Publish failed (HTTP ${response.status})`;
+        try{
+          const body=await response.json();
+          message=body?.detail?.message||body?.detail||message;
+        }catch(e){}
+        return {ok:false,state:normalize(state),error:String(message)};
+      }
+      const published=await response.json();
+      let next=normalize(state);
+      next.weeklyCoveragePlans={...(next.weeklyCoveragePlans||{}),[published.periodKey]:published};
+      next=await hydratePublishedAssignments(next,published.dateKey||published.periodStart);
+      save(next);
+      return {ok:true,state:next,plan:published};
+    }catch(e){
+      return {ok:false,state:normalize(state),error:'Could not reach the shared assignments API.'};
+    }
+  }
+
+  async function deleteGlobalAssignmentPlan(state,periodKey,dateKey){
+    if(!periodKey)return {ok:false,state:normalize(state),error:'No published plan selected.'};
+    try{
+      const response=await fetch(`/api/v1/assignments/published/${encodeURIComponent(periodKey)}`,{
+        method:'DELETE',
+        credentials:'same-origin'
+      });
+      if(!response.ok&&response.status!==404){
+        return {ok:false,state:normalize(state),error:`Delete failed (HTTP ${response.status})`};
+      }
+      const next=await hydratePublishedAssignments(state,dateKey);
+      save(next);
+      return {ok:true,state:next};
+    }catch(e){
+      return {ok:false,state:normalize(state),error:'Could not reach the shared assignments API.'};
+    }
+  }
+
+  root.SiteAppState={STORAGE_KEY,load,save,reset,normalize,todayKey,fmtDate,fmtRange,esc,addDays,weekDateKeys,hydrateScheduleData,hydratePublishedAssignments,publishGlobalAssignmentPlan,deleteGlobalAssignmentPlan,syncScheduleException,syncShiftDefault,outBannerHTML};
 })(typeof globalThis!=='undefined'?globalThis:this);

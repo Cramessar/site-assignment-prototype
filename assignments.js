@@ -35,10 +35,13 @@
  async function hydrateAndRender(){
    const dates=A.weekDateKeys(dateKey);
    state=await A.hydrateScheduleData(state,dates[0],dates[dates.length-1]);
+   state=await A.hydratePublishedAssignments(state,dateKey);
+   state=A.save(state);
    render();
  }
  $('assignmentDate').addEventListener('change',e=>{dateKey=e.target.value||dateKey;selectedKey='';hydrateAndRender();});
  $('planSelect').addEventListener('change',e=>{selectedKey=e.target.value;render();});
  window.addEventListener('storage',()=>{state=A.load();hydrateAndRender();});
  hydrateAndRender();
+ setInterval(hydrateAndRender,60000);
 })();
