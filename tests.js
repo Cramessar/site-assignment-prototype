@@ -306,3 +306,54 @@ assert.ok(outRows.some(x => x.person.id === 'morning-chad' && x.status === 'trai
 assert.ok(outRows.some(x => x.person.id === 'mid-cameron' && x.status === 'off'), 'Explicit Off should appear in out-today data');
 assert.ok(outRows.some(x => x.person.id === 'mid-garett' && x.status === 'unavailable'), 'Unavailable should appear in out-today data');
 assert.ok(!outRows.some(x => x.person.id === 'roster-matthew-weimer'), 'Normal inactive shifts must not be mislabeled as out today');
+
+
+// Recurring person schedules override group defaults without becoming daily exceptions.
+const recurringState = JSON.parse(JSON.stringify(seed));
+recurringState.recurringSchedules = {
+  'morning-david': {
+    replacesShiftDefault: true,
+    segments: [
+      { isoWeekday: 5, segmentOrder: 0, start: '06:00', end: '18:00' },
+      { isoWeekday: 6, segmentOrder: 0, start: '06:00', end: '18:00' },
+      { isoWeekday: 7, segmentOrder: 0, start: '06:00', end: '18:00' }
+    ]
+  },
+  'roster-matthew-weimer': {
+    replacesShiftDefault: true,
+    segments: [
+      { isoWeekday: 2, segmentOrder: 0, start: '05:00', end: '08:30' },
+      { isoWeekday: 2, segmentOrder: 1, start: '13:00', end: '17:30' }
+    ]
+  }
+};
+
+const davidFriday = S.getShift(recurringState, 'morning-david', '2026-09-25');
+assert.equal(davidFriday.source, 'recurring', 'David Friday should resolve from recurring schedule');
+assert.equal(davidFriday.start, '06:00');
+assert.equal(davidFriday.end, '18:00');
+assert.equal(davidFriday.durationMinutes, 720, 'David recurring day should be 12 hours');
+
+const davidMonday = S.getShift(recurringState, 'morning-david', '2026-09-28');
+assert.equal(davidMonday.off, true, 'Custom 36-hour profile should make Monday off even though Weekend Day is normally active Monday');
+assert.equal(davidMonday.recurringOff, true);
+
+const matthewTuesday = S.getShift(recurringState, 'roster-matthew-weimer', '2026-09-29');
+assert.equal(matthewTuesday.source, 'recurring');
+assert.equal(matthewTuesday.durationMinutes, 480, 'Split Tuesday should total 8 scheduled hours');
+assert.equal(S.intervalsForCoverage(matthewTuesday).length, 2, 'Split recurring schedule should preserve both work blocks');
+assert.equal(S.shiftTimeLabel(matthewTuesday), '5:00 AM–8:30 AM + 1:00 PM–5:30 PM');
+
+const weeklyAbsenceState = S.setCoverageStatus(
+  S.setCoverageStatus(recurringState, 'morning-chad', '2026-09-25', 'vacation'),
+  'mid-cameron',
+  '2026-09-26',
+  'unavailable'
+);
+const weeklyAbsences = S.outForDates(
+  weeklyAbsenceState,
+  ['2026-09-25', '2026-09-26', '2026-09-27'],
+  ['weekend-day', 'weekend-mid']
+);
+assert.ok(weeklyAbsences.some(x => x.person.id === 'morning-chad' && x.status === 'vacation'));
+assert.ok(weeklyAbsences.some(x => x.person.id === 'mid-cameron' && x.status === 'unavailable'));
