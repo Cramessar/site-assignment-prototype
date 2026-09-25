@@ -290,15 +290,20 @@ console.log('All prototype v10.2 daily status redistribution tests passed.');
 
 // Daily public availability banner data should include explicit absences only.
 const outState = S.setCoverageStatus(
-  S.setOff(
-    S.setCoverageStatus(seed, 'morning-chad', '2026-09-05', 'training'),
+  S.setCoverageStatus(
+    S.setOff(
+      S.setCoverageStatus(seed, 'morning-chad', '2026-09-05', 'training'),
     'mid-cameron',
     '2026-09-05',
-    true
+      true
+    ),
+    'mid-garett',
+    '2026-09-05',
+    'unavailable'
   ),
-  'mid-garett',
+  'morning-david',
   '2026-09-05',
-  'unavailable'
+  'vacation'
 );
 const outRows = S.outToday(outState, '2026-09-05');
 assert.ok(outRows.some(x => x.person.id === 'morning-david' && x.status === 'vacation'), 'Vacation should appear in out-today data');
