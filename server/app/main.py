@@ -5,7 +5,10 @@ from .config import get_settings
 from .routers.ai import router as ai_router
 from .routers.health import router as health_router
 from .routers.state import router as state_router
+from .routers.schedules import router as schedules_router
 from .routers.workload import router as workload_router
+from .db import SessionLocal
+from .services.schedule_seed import seed_schedules
 
 settings = get_settings()
 
@@ -28,6 +31,16 @@ if settings.allowed_origins:
     )
 
 app.include_router(health_router)
+@app.on_event("startup")
+def seed_recurring_schedules() -> None:
+    db = SessionLocal()
+    try:
+        seed_schedules(db)
+    finally:
+        db.close()
+
+
 app.include_router(state_router)
+app.include_router(schedules_router)
 app.include_router(ai_router)
 app.include_router(workload_router)
