@@ -4,176 +4,185 @@
 
 The system uses the previous **three complete calendar months** as the official site-assignment workload.
 
-Examples:
-
 | Snapshot run | Workload period |
 | --- | --- |
 | October 1 | July 1 - September 30 |
 | November 1 | August 1 - October 31 |
 | December 1 | September 1 - November 30 |
 
-This deliberately changes only once per month. Published assignment plans can therefore reference a stable, reproducible workload snapshot.
+This changes only once per month so published assignments can reference a stable, reproducible workload snapshot.
 
-## Version 1 assignment weight
+## Version 1 workload
 
-For v1:
-
-```text
-assignment_weight = total Jira issues for the site during the 3-month period
-```
-
-The snapshot also stores:
-
-- monthly issue counts
-- currently unresolved issue count
-- priority distribution
-- Jira values that could not be mapped to a canonical site
-
-Those additional fields are visible for analysis but do **not** change assignment weight yet. That keeps the first model transparent and comparable to the spreadsheet process that already works.
-
-## Jira integration
-
-The worker supports:
-
-- Jira Cloud enhanced JQL search
-- Jira Data Center JQL search
-- bearer-token authentication
-- basic email/API-token authentication
-- custom Jira site fields
-- canonical site aliases
-
-Required environment values:
+The Jira pull is intentionally simple:
 
 ```text
-JIRA_ENABLED=true
-JIRA_BASE_URL=https://jira.example.com
-JIRA_DEPLOYMENT=data_center
-JIRA_AUTH_MODE=bearer
-JIRA_BEARER_TOKEN=...
-JIRA_JQL_BASE=...
-JIRA_SITE_FIELD=customfield_12345
+raw site = Jira project.name
+assignment weight = number of matching Jira issues for that project
 ```
 
-For Jira Cloud, use:
+The API also keeps the three monthly subtotals so supervisors and Muse can see whether a site's volume is moving up or down, but the official assignment weight is only the 3-month total.
+
+Example response:
+
+```json
+{
+  "period_start": "2026-07-01",
+  "period_end": "2026-09-30",
+  "sites": [
+    {
+      "raw_site": "Walmart-6020-BRK",
+      "ticket_count": 575,
+      "assignment_weight": 575,
+      "monthly_counts": {
+        "2026-07": 181,
+        "2026-08": 194,
+        "2026-09": 200
+      }
+    }
+  ]
+}
+```
+
+## Jira connection
+
+This uses the same Atlassian Cloud pattern as the existing Jira report:
 
 ```text
-JIRA_DEPLOYMENT=cloud
-JIRA_AUTH_MODE=basic
-JIRA_EMAIL=...
-JIRA_API_TOKEN=...
+JIRA_BASE_URL=https://symbotic.atlassian.net
+JIRA_EMAIL=
+JIRA_API_TOKEN=
+JIRA_PAGE_SIZE=100
+JIRA_TIMEOUT_SECONDS=60
 ```
 
-The application appends the date range to `JIRA_JQL_BASE`, so credentials and query configuration never need to change month to month.
+The token stays only in the server's local `.env`; do not commit it.
 
-## Site mapping
-
-Canonical site IDs live in:
+The default report population matches the existing report:
 
 ```text
-server/config/sites.json
+JIRA_JQL_BASE=assignee IS NOT EMPTY AND cf[22087] IS NOT EMPTY
 ```
 
-Known Jira/display aliases live in:
+The worker automatically appends the previous three full calendar months, for example:
 
 ```text
-server/config/site_aliases.json
+(assignee IS NOT EMPTY AND cf[22087] IS NOT EMPTY)
+AND created >= "2026-07-01"
+AND created < "2026-10-01"
+ORDER BY project ASC, created ASC
 ```
 
-Unknown Jira site values are retained in each snapshot's `unmapped_values` report rather than silently discarded.
+Only these Jira fields are requested:
 
-## Schedule
+```text
+project
+created
+```
 
-The `shifts-workload-worker` container:
+The worker does not parse assignees, roster data, Cells Impacted, status, or ticket details for this workload calculation.
 
-1. checks for the current snapshot immediately at startup,
+## Why project name is the raw site
+
+The existing Jira report already reads each issue's Jira project key and project name separately. For the first production version, the project name is the raw site identifier.
+
+We intentionally do not map raw Jira names to the shorter Site Coverage labels yet. First run the real report and inspect the exact project-name list. Then build a small verified mapping such as:
+
+```text
+Walmart-6020-BRK -> BRK - 6020
+Walmart-6010-DOUG -> DOUG-6010
+```
+
+That avoids guessing aliases before seeing the live Jira data.
+
+## Monthly worker
+
+Docker Compose includes:
+
+```text
+shifts-workload-worker
+```
+
+It:
+
+1. checks for the current rolling snapshot immediately after startup,
 2. creates it if missing,
-3. waits until the 1st of the next month,
-4. refreshes at `WORKLOAD_REFRESH_HOUR` in `WORKLOAD_TIMEZONE`.
+3. waits until the first day of the next month,
+4. refreshes at the configured local hour.
 
-Default:
+Defaults:
 
 ```text
 WORKLOAD_TIMEZONE=America/New_York
 WORKLOAD_REFRESH_HOUR=4
 ```
 
-The period is idempotent: restarting the container does not create duplicate snapshots.
+Snapshots are historical. A new month creates a new snapshot instead of overwriting the previous one.
 
-## Manual testing
+## Manual first-run validation
 
-After Jira is configured:
+Before enabling the unattended job, configure Jira in `.env`:
+
+```text
+JIRA_ENABLED=true
+JIRA_BASE_URL=https://symbotic.atlassian.net
+JIRA_EMAIL=your-email
+JIRA_API_TOKEN=your-token
+JIRA_PAGE_SIZE=100
+JIRA_TIMEOUT_SECONDS=60
+```
+
+Rebuild:
 
 ```powershell
 docker compose up -d --build
+```
+
+Watch the pull:
+
+```powershell
 docker compose logs -f workload-worker
 ```
 
-A supervisor can also trigger the current rolling period manually:
+Or trigger it manually as a supervisor:
 
 ```text
 POST /api/v1/workload/refresh
 ```
 
-Read the latest snapshot:
+Read the current snapshot:
 
 ```text
 GET /api/v1/workload/current
 ```
 
-List historical snapshots:
-
-```text
-GET /api/v1/workload/snapshots
-```
+The first acceptance test is simple: compare the raw Jira project names and three-month totals to the existing report/spreadsheet before using them for assignments.
 
 ## Assignment recommendation
 
-The deterministic balancer takes:
+The deterministic balancer consumes the latest snapshot and:
 
-- the latest site workload snapshot,
 - eligible engineers,
-- a capacity factor for each engineer,
+- capacity factor per engineer,
 - locked assignments.
 
-It produces a complete site assignment before AI is involved.
+Endpoint:
 
 ```text
 POST /api/v1/workload/current/recommend-assignments
 ```
 
-Example request:
+The deterministic plan is created before local AI is involved.
 
-```json
-{
-  "engineers": [
-    {"id": "carolyn", "name": "Carolyn", "capacity": 1.0},
-    {"id": "bronson", "name": "Bronson", "capacity": 1.0},
-    {"id": "david", "name": "David", "capacity": 1.0},
-    {"id": "krysztof", "name": "Krysztof", "capacity": 1.0}
-  ],
-  "locks": [
-    {"person_id": "carolyn", "site_id": "BRK - 6020"},
-    {"person_id": "bronson", "site_id": "UNFI-JOL"}
-  ],
-  "notes": "Keep the senior cohort near the same workload.",
-  "use_ai": true
-}
-```
+## Muse review
 
-Capacity is intentionally separate from scheduled hours. If four senior engineers should carry similar primary workload even when two work 12-hour shifts, give all four a capacity of `1.0`. If a team intentionally wants a longer-shift engineer to carry more, increase that person's capacity.
-
-## Local model selection
-
-The assignment reviewer calls the existing Ramessar gateway's `/v1/models` endpoint.
-
-Preference order:
+The app queries the existing Ramessar gateway's `/v1/models` endpoint and prefers:
 
 1. `AI_ASSIGNMENT_MODEL`
 2. `muse-glimmer:latest`
-3. another installed `muse-glimmer` tag
+3. another installed Muse tag
 4. `reasoning`
 5. `auto`
-6. normal gateway default
 
 Default:
 
@@ -181,8 +190,16 @@ Default:
 AI_ASSIGNMENT_MODEL=muse-glimmer:latest
 ```
 
-The AI receives the deterministic candidate, site workload detail, supervisor notes, and locks. It can recommend a small number of operationally sensible changes, but it cannot publish the plan or bypass deterministic constraints.
+Muse receives:
 
-## Next integration step
+- the deterministic candidate,
+- raw site weights,
+- monthly subtotals,
+- assignment locks,
+- supervisor notes.
 
-The Coverage Builder UI should automatically construct the eligible-engineer/capacity request from the selected shifts, schedules, vacations, and date-specific availability. That will connect the existing calendar logic directly to the monthly workload engine without asking a supervisor to type engineer inputs manually.
+It can explain the candidate and recommend a small number of swaps, but it cannot publish the plan or bypass deterministic rules.
+
+## Next step after the first Jira pull
+
+Use the real raw project-name list to create a verified Jira-project-to-Site-Coverage mapping. Then wire the Coverage Builder to automatically send its eligible engineers, vacations, individual schedules, locks, and the latest workload snapshot into the recommendation endpoint.
