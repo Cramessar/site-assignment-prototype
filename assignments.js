@@ -20,6 +20,16 @@
    const plan=currentPlan();if(plan)$('planSelect').value=plan.periodKey;
    $('outBanner').innerHTML=A.outBannerHTML(state,dateKey,{dates:plan?.periodDates||A.weekDateKeys(dateKey),shiftIds:plan?.selectedShiftIds||[]});
    renderSummary(plan);
+   if(state.assignmentSync?.status==='error'){
+     $('assignmentStatus').className='badge danger';
+     $('assignmentStatus').textContent='Shared data unavailable';
+     $('assignmentTitle').textContent='Site assignments unavailable';
+     $('assignmentSubtitle').textContent=state.assignmentSync.error||'Could not reach the shared assignment server.';
+     $('assignmentLegend').innerHTML='';
+     $('assignmentTable').innerHTML='<div class="empty-panel"><strong>Could not load global site assignments.</strong><span>This page will not fall back to browser-local assignments. Check the API/database connection and refresh.</span></div>';
+     $('handoffStrip').innerHTML='';
+     return;
+   }
    if(!plan){$('assignmentStatus').className='badge warning';$('assignmentStatus').textContent='No published week';$('assignmentTitle').textContent='Site assignments';$('assignmentSubtitle').textContent='A supervisor can generate and publish a weekly plan from Supervisor Builder.';$('assignmentLegend').innerHTML='';$('assignmentTable').innerHTML='<div class="empty-panel"><strong>No weekly site assignment has been published for this date.</strong><span>Use Supervisor Builder to create one.</span></div>';$('handoffStrip').innerHTML='';return;}
    const effective=C.effectiveWeeklyPlan(state,plan,dateKey);
    const stale=C.weeklyPlanStale(state,plan);
