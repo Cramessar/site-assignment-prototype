@@ -1,140 +1,411 @@
 {
   "shift_defaults": [
-    {"shift_id":"weekday-morning","name":"Weekday Morning","default_start":"06:00","default_end":"16:00","active_iso_weekdays":[1,2,3,4]},
-    {"shift_id":"weekday-mid","name":"Weekday Mid","default_start":"12:00","default_end":"22:00","active_iso_weekdays":[1,2,3,4]},
-    {"shift_id":"weekday-night","name":"Weekday Night","default_start":"20:00","default_end":"06:00","active_iso_weekdays":[1,2,3,4]},
-    {"shift_id":"weekend-day","name":"Weekend Day","default_start":"06:00","default_end":"16:00","active_iso_weekdays":[5,6,7,1]},
-    {"shift_id":"weekend-mid","name":"Weekend Mid","default_start":"12:00","default_end":"22:00","active_iso_weekdays":[5,6,7,1]},
-    {"shift_id":"weekend-night","name":"Weekend Night","default_start":"20:00","default_end":"06:00","active_iso_weekdays":[5,6,7,1]},
-    {"shift_id":"commissioning","name":"Commissioning","default_start":"08:00","default_end":"17:00","active_iso_weekdays":[1,2,3,4,5]},
-    {"shift_id":"leader","name":"Leader","default_start":"09:00","default_end":"17:00","active_iso_weekdays":[1,2,3,4,5]}
+    {
+      "shift_id": "weekday-morning",
+      "name": "Weekday Morning",
+      "default_start": "06:00",
+      "default_end": "16:00",
+      "active_iso_weekdays": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "shift_id": "weekday-mid",
+      "name": "Weekday Mid",
+      "default_start": "12:00",
+      "default_end": "22:00",
+      "active_iso_weekdays": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "shift_id": "weekday-night",
+      "name": "Weekday Night",
+      "default_start": "20:00",
+      "default_end": "06:00",
+      "active_iso_weekdays": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "shift_id": "weekend-day",
+      "name": "Weekend Day",
+      "default_start": "06:00",
+      "default_end": "16:00",
+      "active_iso_weekdays": [
+        5,
+        6,
+        7,
+        1
+      ]
+    },
+    {
+      "shift_id": "weekend-mid",
+      "name": "Weekend Mid",
+      "default_start": "12:00",
+      "default_end": "22:00",
+      "active_iso_weekdays": [
+        5,
+        6,
+        7,
+        1
+      ]
+    },
+    {
+      "shift_id": "weekend-night",
+      "name": "Weekend Night",
+      "default_start": "20:00",
+      "default_end": "06:00",
+      "active_iso_weekdays": [
+        5,
+        6,
+        7,
+        1
+      ]
+    },
+    {
+      "shift_id": "commissioning",
+      "name": "Commissioning",
+      "default_start": "08:00",
+      "default_end": "17:00",
+      "active_iso_weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "shift_id": "leader",
+      "name": "Leader",
+      "default_start": "09:00",
+      "default_end": "17:00",
+      "active_iso_weekdays": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    }
   ],
   "custom_profiles": [
     {
-      "person_id":"morning-david",
-      "full_name":"David Lewis",
-      "shift_id":"weekend-day",
-      "source":"Microsoft Shifts screenshot 2026-09-25",
-      "note":"36-hour Fri-Sun pattern",
-      "segments":[
-        {"iso_weekday":5,"start_time":"06:00","end_time":"18:00"},
-        {"iso_weekday":6,"start_time":"06:00","end_time":"18:00"},
-        {"iso_weekday":7,"start_time":"06:00","end_time":"18:00"}
+      "person_id": "morning-david",
+      "full_name": "David Lewis",
+      "shift_id": "weekend-day",
+      "source": "Microsoft Shifts screenshot 2026-09-25",
+      "note": "36-hour Fri-Sun pattern",
+      "segments": [
+        {
+          "iso_weekday": 5,
+          "start_time": "06:00",
+          "end_time": "18:00"
+        },
+        {
+          "iso_weekday": 6,
+          "start_time": "06:00",
+          "end_time": "18:00"
+        },
+        {
+          "iso_weekday": 7,
+          "start_time": "06:00",
+          "end_time": "18:00"
+        }
       ]
     },
     {
-      "person_id":"morning-chad",
-      "full_name":"Chad Cruz Jr.",
-      "shift_id":"weekend-day",
-      "source":"Microsoft Shifts screenshot 2026-09-25",
-      "note":"36-hour Fri-Sun pattern",
-      "segments":[
-        {"iso_weekday":5,"start_time":"06:00","end_time":"18:00"},
-        {"iso_weekday":6,"start_time":"06:00","end_time":"18:00"},
-        {"iso_weekday":7,"start_time":"06:00","end_time":"18:00"}
+      "person_id": "morning-chad",
+      "full_name": "Chad Cruz Jr.",
+      "shift_id": "weekend-day",
+      "source": "Microsoft Shifts screenshot 2026-09-25",
+      "note": "36-hour Fri-Sun pattern",
+      "segments": [
+        {
+          "iso_weekday": 5,
+          "start_time": "06:00",
+          "end_time": "18:00"
+        },
+        {
+          "iso_weekday": 6,
+          "start_time": "06:00",
+          "end_time": "18:00"
+        },
+        {
+          "iso_weekday": 7,
+          "start_time": "06:00",
+          "end_time": "18:00"
+        }
       ]
     },
     {
-      "person_id":"mid-krysztof",
-      "full_name":"Krysztof Capuras",
-      "shift_id":"weekend-mid",
-      "source":"Microsoft Shifts screenshot 2026-09-25",
-      "note":"36-hour Fri-Sun pattern",
-      "segments":[
-        {"iso_weekday":5,"start_time":"08:00","end_time":"20:00"},
-        {"iso_weekday":6,"start_time":"08:00","end_time":"20:00"},
-        {"iso_weekday":7,"start_time":"08:00","end_time":"20:00"}
+      "person_id": "morning-josh",
+      "full_name": "Joshua Benson",
+      "shift_id": "weekend-day",
+      "source": "User-confirmed 2026-09-25",
+      "note": "40-hour Weekend Day pattern; 8 AM-6 PM",
+      "segments": [
+        {
+          "iso_weekday": 1,
+          "start_time": "08:00",
+          "end_time": "18:00"
+        },
+        {
+          "iso_weekday": 5,
+          "start_time": "08:00",
+          "end_time": "18:00"
+        },
+        {
+          "iso_weekday": 6,
+          "start_time": "08:00",
+          "end_time": "18:00"
+        },
+        {
+          "iso_weekday": 7,
+          "start_time": "08:00",
+          "end_time": "18:00"
+        }
       ]
     },
     {
-      "person_id":"mid-garett",
-      "full_name":"Garret Bishop",
-      "shift_id":"weekend-mid",
-      "source":"Microsoft Shifts screenshot 2026-09-25",
-      "note":"Monday 12-10; Fri-Sun 10-8",
-      "segments":[
-        {"iso_weekday":1,"start_time":"12:00","end_time":"22:00"},
-        {"iso_weekday":5,"start_time":"10:00","end_time":"20:00"},
-        {"iso_weekday":6,"start_time":"10:00","end_time":"20:00"},
-        {"iso_weekday":7,"start_time":"10:00","end_time":"20:00"}
+      "person_id": "mid-krysztof",
+      "full_name": "Krysztof Capuras",
+      "shift_id": "weekend-mid",
+      "source": "Microsoft Shifts screenshot 2026-09-25",
+      "note": "36-hour Fri-Sun pattern",
+      "segments": [
+        {
+          "iso_weekday": 5,
+          "start_time": "08:00",
+          "end_time": "20:00"
+        },
+        {
+          "iso_weekday": 6,
+          "start_time": "08:00",
+          "end_time": "20:00"
+        },
+        {
+          "iso_weekday": 7,
+          "start_time": "08:00",
+          "end_time": "20:00"
+        }
       ]
     },
     {
-      "person_id":"roster-chaitanya-jagarapu",
-      "full_name":"Chaitanya Jagarapu",
-      "shift_id":"weekday-mid",
-      "source":"Microsoft Shifts screenshot 2026-09-25",
-      "note":"Alternating weekday start times",
-      "segments":[
-        {"iso_weekday":1,"start_time":"12:00","end_time":"22:00"},
-        {"iso_weekday":2,"start_time":"10:00","end_time":"20:00"},
-        {"iso_weekday":3,"start_time":"12:00","end_time":"22:00"},
-        {"iso_weekday":4,"start_time":"10:00","end_time":"20:00"}
+      "person_id": "mid-garett",
+      "full_name": "Garret Bishop",
+      "shift_id": "weekend-mid",
+      "source": "Microsoft Shifts screenshot 2026-09-25",
+      "note": "Monday 12-10; Fri-Sun 10-8",
+      "segments": [
+        {
+          "iso_weekday": 1,
+          "start_time": "12:00",
+          "end_time": "22:00"
+        },
+        {
+          "iso_weekday": 5,
+          "start_time": "10:00",
+          "end_time": "20:00"
+        },
+        {
+          "iso_weekday": 6,
+          "start_time": "10:00",
+          "end_time": "20:00"
+        },
+        {
+          "iso_weekday": 7,
+          "start_time": "10:00",
+          "end_time": "20:00"
+        }
       ]
     },
     {
-      "person_id":"roster-darwin-mounsey",
-      "full_name":"Darwin Mounsey",
-      "shift_id":"weekday-mid",
-      "source":"Microsoft Shifts screenshot 2026-09-25",
-      "note":"1 PM-9 PM Monday-Friday",
-      "segments":[
-        {"iso_weekday":1,"start_time":"13:00","end_time":"21:00"},
-        {"iso_weekday":2,"start_time":"13:00","end_time":"21:00"},
-        {"iso_weekday":3,"start_time":"13:00","end_time":"21:00"},
-        {"iso_weekday":4,"start_time":"13:00","end_time":"21:00"},
-        {"iso_weekday":5,"start_time":"13:00","end_time":"21:00"}
+      "person_id": "roster-chaitanya-jagarapu",
+      "full_name": "Chaitanya Jagarapu",
+      "shift_id": "weekday-mid",
+      "source": "Microsoft Shifts screenshot 2026-09-25",
+      "note": "Alternating weekday start times",
+      "segments": [
+        {
+          "iso_weekday": 1,
+          "start_time": "12:00",
+          "end_time": "22:00"
+        },
+        {
+          "iso_weekday": 2,
+          "start_time": "10:00",
+          "end_time": "20:00"
+        },
+        {
+          "iso_weekday": 3,
+          "start_time": "12:00",
+          "end_time": "22:00"
+        },
+        {
+          "iso_weekday": 4,
+          "start_time": "10:00",
+          "end_time": "20:00"
+        }
       ]
     },
     {
-      "person_id":"roster-michael-herrera",
-      "full_name":"Michael Herrera",
-      "shift_id":"weekend-night",
-      "source":"Microsoft Shifts screenshot 2026-09-25",
-      "note":"36-hour Fri-Sun pattern",
-      "segments":[
-        {"iso_weekday":5,"start_time":"18:00","end_time":"06:00"},
-        {"iso_weekday":6,"start_time":"18:00","end_time":"06:00"},
-        {"iso_weekday":7,"start_time":"18:00","end_time":"06:00"}
+      "person_id": "roster-darwin-mounsey",
+      "full_name": "Darwin Mounsey",
+      "shift_id": "weekday-mid",
+      "source": "Microsoft Shifts screenshot 2026-09-25",
+      "note": "1 PM-9 PM Monday-Friday",
+      "segments": [
+        {
+          "iso_weekday": 1,
+          "start_time": "13:00",
+          "end_time": "21:00"
+        },
+        {
+          "iso_weekday": 2,
+          "start_time": "13:00",
+          "end_time": "21:00"
+        },
+        {
+          "iso_weekday": 3,
+          "start_time": "13:00",
+          "end_time": "21:00"
+        },
+        {
+          "iso_weekday": 4,
+          "start_time": "13:00",
+          "end_time": "21:00"
+        },
+        {
+          "iso_weekday": 5,
+          "start_time": "13:00",
+          "end_time": "21:00"
+        }
       ]
     },
     {
-      "person_id":"roster-khalid-javed",
-      "full_name":"Khalid Javed",
-      "shift_id":"weekend-night",
-      "source":"Microsoft Shifts screenshot 2026-09-25",
-      "note":"36-hour Fri-Sun pattern",
-      "segments":[
-        {"iso_weekday":5,"start_time":"18:00","end_time":"06:00"},
-        {"iso_weekday":6,"start_time":"18:00","end_time":"06:00"},
-        {"iso_weekday":7,"start_time":"18:00","end_time":"06:00"}
+      "person_id": "roster-michael-herrera",
+      "full_name": "Michael Herrera",
+      "shift_id": "weekend-night",
+      "source": "Microsoft Shifts screenshot 2026-09-25",
+      "note": "36-hour Fri-Sun pattern",
+      "segments": [
+        {
+          "iso_weekday": 5,
+          "start_time": "18:00",
+          "end_time": "06:00"
+        },
+        {
+          "iso_weekday": 6,
+          "start_time": "18:00",
+          "end_time": "06:00"
+        },
+        {
+          "iso_weekday": 7,
+          "start_time": "18:00",
+          "end_time": "06:00"
+        }
       ]
     },
     {
-      "person_id":"roster-kevin-mitchell",
-      "full_name":"Kevin Mitchell",
-      "shift_id":"weekend-night",
-      "source":"Microsoft Shifts screenshot 2026-09-25",
-      "note":"36-hour Fri-Sun pattern",
-      "segments":[
-        {"iso_weekday":5,"start_time":"18:00","end_time":"06:00"},
-        {"iso_weekday":6,"start_time":"18:00","end_time":"06:00"},
-        {"iso_weekday":7,"start_time":"18:00","end_time":"06:00"}
+      "person_id": "roster-khalid-javed",
+      "full_name": "Khalid Javed",
+      "shift_id": "weekend-night",
+      "source": "Microsoft Shifts screenshot 2026-09-25",
+      "note": "36-hour Fri-Sun pattern",
+      "segments": [
+        {
+          "iso_weekday": 5,
+          "start_time": "18:00",
+          "end_time": "06:00"
+        },
+        {
+          "iso_weekday": 6,
+          "start_time": "18:00",
+          "end_time": "06:00"
+        },
+        {
+          "iso_weekday": 7,
+          "start_time": "18:00",
+          "end_time": "06:00"
+        }
       ]
     },
     {
-      "person_id":"roster-matthew-weimer",
-      "full_name":"Matthew Weimer",
-      "shift_id":"weekday-morning",
-      "source":"Microsoft Shifts screenshot 2026-09-25",
-      "note":"Split Tuesday/Thursday coverage as displayed in Microsoft Shifts",
-      "segments":[
-        {"iso_weekday":1,"start_time":"06:00","end_time":"16:00"},
-        {"iso_weekday":2,"segment_order":0,"start_time":"05:00","end_time":"08:30"},
-        {"iso_weekday":2,"segment_order":1,"start_time":"13:00","end_time":"17:30"},
-        {"iso_weekday":3,"start_time":"06:00","end_time":"16:00"},
-        {"iso_weekday":4,"segment_order":0,"start_time":"05:00","end_time":"08:30"},
-        {"iso_weekday":4,"segment_order":1,"start_time":"13:00","end_time":"17:30"}
+      "person_id": "roster-kevin-mitchell",
+      "full_name": "Kevin Mitchell",
+      "shift_id": "weekend-night",
+      "source": "Microsoft Shifts screenshot 2026-09-25",
+      "note": "36-hour Fri-Sun pattern",
+      "segments": [
+        {
+          "iso_weekday": 5,
+          "start_time": "18:00",
+          "end_time": "06:00"
+        },
+        {
+          "iso_weekday": 6,
+          "start_time": "18:00",
+          "end_time": "06:00"
+        },
+        {
+          "iso_weekday": 7,
+          "start_time": "18:00",
+          "end_time": "06:00"
+        }
+      ]
+    },
+    {
+      "person_id": "roster-matthew-weimer",
+      "full_name": "Matthew Weimer",
+      "shift_id": "weekday-morning",
+      "source": "Microsoft Shifts screenshot 2026-09-25",
+      "note": "Split Tuesday/Thursday coverage as displayed in Microsoft Shifts",
+      "segments": [
+        {
+          "iso_weekday": 1,
+          "start_time": "06:00",
+          "end_time": "16:00"
+        },
+        {
+          "iso_weekday": 2,
+          "segment_order": 0,
+          "start_time": "05:00",
+          "end_time": "08:30"
+        },
+        {
+          "iso_weekday": 2,
+          "segment_order": 1,
+          "start_time": "13:00",
+          "end_time": "17:30"
+        },
+        {
+          "iso_weekday": 3,
+          "start_time": "06:00",
+          "end_time": "16:00"
+        },
+        {
+          "iso_weekday": 4,
+          "segment_order": 0,
+          "start_time": "05:00",
+          "end_time": "08:30"
+        },
+        {
+          "iso_weekday": 4,
+          "segment_order": 1,
+          "start_time": "13:00",
+          "end_time": "17:30"
+        }
       ]
     }
   ]
