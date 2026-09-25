@@ -221,8 +221,9 @@
         return {ok:false,state:normalize(state),error:String(message)};
       }
       const published=await response.json();
-      const next=normalize(state);
-      next.weeklyCoveragePlans={[published.periodKey]:published};
+      let next=normalize(state);
+      next.weeklyCoveragePlans={...(next.weeklyCoveragePlans||{}),[published.periodKey]:published};
+      next=await hydratePublishedAssignments(next,published.dateKey||published.periodStart);
       save(next);
       return {ok:true,state:next,plan:published};
     }catch(e){
