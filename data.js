@@ -683,7 +683,7 @@
       "title": "TSA",
       "role": "tsa",
       "manager": "Guillermo",
-      "operationalShiftId": "unassigned",
+      "operationalShiftId": "weekend-night",
       "vacation": false,
       "directoryOnly": true
     },
