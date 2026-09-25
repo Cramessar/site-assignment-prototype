@@ -127,5 +127,30 @@
     const weekSection=weekRows.length?`<details class="out-week" open><summary><strong>Out this week</strong><span>${weekRows.length} absence${weekRows.length===1?'':'s'}</span></summary><div class="out-people">${weekRows.map(row=>chip(row,fmtDate(row.dateKey,{weekday:'short'}))).join('')}</div></details>`:'';
     return `<section class="out-banner" role="status" aria-label="Team availability">${todaySection}${weekSection}<p>These team members should not be relied on for normal coverage during the listed periods.</p></section>`;
   }
-  root.SiteAppState={STORAGE_KEY,load,save,reset,normalize,todayKey,fmtDate,fmtRange,esc,addDays,weekDateKeys,hydrateScheduleData,outBannerHTML};
+  async function syncScheduleException(state,personId,dateKey){
+    const override=state?.scheduleOverrides?.[dateKey]?.[personId]||null;
+    const url=`/api/v1/schedules/exceptions/${encodeURIComponent(personId)}/${encodeURIComponent(dateKey)}`;
+    try{
+      if(!override){
+        await fetch(url,{method:'DELETE',credentials:'same-origin'});
+        return true;
+      }
+      const status=override.coverageStatus||(override.off?'off':'working');
+      const body={
+        status,
+        start_time:override.start||null,
+        end_time:override.end||null,
+        note:override.note||null
+      };
+      const response=await fetch(url,{
+        method:'PUT',
+        credentials:'same-origin',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(body)
+      });
+      return response.ok;
+    }catch(e){return false;}
+  }
+
+  root.SiteAppState={STORAGE_KEY,load,save,reset,normalize,todayKey,fmtDate,fmtRange,esc,addDays,weekDateKeys,hydrateScheduleData,syncScheduleException,outBannerHTML};
 })(typeof globalThis!=='undefined'?globalThis:this);
