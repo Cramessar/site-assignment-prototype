@@ -9,7 +9,7 @@
     ['Operational week',A.fmtRange(plan.periodStart,plan.periodEnd),(plan.periodDates||[]).length+' scheduled calendar days'],
     ['Coverage shifts',(plan.selectedShiftIds||[]).map(id=>S.shiftDefinition(state,id)?.name||id).join(' + '),(plan.windows||[]).length+' coverage windows'],
     ['Sites','38','ticket-weighted assignments'],
-    ['Published',plan.publishedAt?new Date(plan.publishedAt).toLocaleDateString():'Preview','weekly source of truth']
+    ['Published',plan.publishedAt?new Date(plan.publishedAt).toLocaleDateString():'Preview','PostgreSQL source of truth']
    ]:[['Operational week','No published plan','Choose a date covered by a published assignment week'],['Coverage shifts','—','—'],['Sites','38','waiting for publication'],['Published','—','—']];
    $('weekSummary').innerHTML=cards.map(([l,v,s])=>`<div class="summary-card"><span>${esc(l)}</span><strong>${esc(v)}</strong><small>${esc(s)}</small></div>`).join('');
  }
@@ -30,12 +30,12 @@
      $('handoffStrip').innerHTML='';
      return;
    }
-   if(!plan){$('assignmentStatus').className='badge warning';$('assignmentStatus').textContent='No published week';$('assignmentTitle').textContent='Site assignments';$('assignmentSubtitle').textContent='A supervisor can generate and publish a weekly plan from Supervisor Builder.';$('assignmentLegend').innerHTML='';$('assignmentTable').innerHTML='<div class="empty-panel"><strong>No weekly site assignment has been published for this date.</strong><span>Use Supervisor Builder to create one.</span></div>';$('handoffStrip').innerHTML='';return;}
+   if(!plan){$('assignmentStatus').className='badge warning';$('assignmentStatus').textContent='No global published week';$('assignmentTitle').textContent='Site assignments';$('assignmentSubtitle').textContent='A supervisor can generate and publish a weekly plan from Supervisor Builder.';$('assignmentLegend').innerHTML='';$('assignmentTable').innerHTML='<div class="empty-panel"><strong>No weekly site assignment has been published for this date.</strong><span>Use Supervisor Builder to create one.</span></div>';$('handoffStrip').innerHTML='';return;}
    const effective=C.effectiveWeeklyPlan(state,plan,dateKey);
    const stale=C.weeklyPlanStale(state,plan);
    const adjusted=Boolean(effective?.dailyAdjusted);
    $('assignmentStatus').className=`badge ${stale||adjusted?'warning':'success'}`;
-   $('assignmentStatus').textContent=adjusted?'Published • daily coverage adjusted':stale?'Published • weekly refresh needed':'Published';
+   $('assignmentStatus').textContent=adjusted?'Published globally • daily coverage adjusted':stale?'Published globally • weekly refresh needed':'Published globally';
    $('assignmentTitle').textContent=(plan.selectedShiftIds||[]).map(id=>S.shiftDefinition(state,id)?.name||id).join(' + ');
    $('assignmentSubtitle').textContent=adjusted
      ? `Operational week ${A.fmtRange(plan.periodStart,plan.periodEnd)}. Non-working staffing statuses for ${new Date(dateKey+'T12:00:00').toLocaleDateString([],{weekday:'long',month:'short',day:'numeric'})} have been redistributed automatically.`
