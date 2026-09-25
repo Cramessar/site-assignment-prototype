@@ -184,34 +184,77 @@
 
   async function hydratePublishedAssignments(state,dateKey){
     let next=normalize(state);
+
+    // Published assignments are server-authoritative. Never keep/show an old
+    // browser copy when the server cannot confirm it.
+    next.weeklyCoveragePlans={};
+    next.assignmentSync={
+      ok:false,
+      status:'loading',
+      error:null,
+      fetchedAt:null
+    };
+
     const params=new URLSearchParams();
     if(dateKey)params.set('date',dateKey);
+
     try{
       const response=await fetch(`/api/v1/assignments/published${params.toString()?`?${params.toString()}`:''}`,{
-        credentials:'same-origin'
+        credentials:'same-origin',
+        cache:'no-store'
       });
-      if(!response.ok)return next;
+
+      if(!response.ok){
+        let detail='';
+        try{
+          const body=await response.json();
+          detail=body?.detail?.message||body?.detail||'';
+        }catch(e){}
+        next.assignmentSync={
+          ok:false,
+          status:'error',
+          error:`Assignment server returned HTTP ${response.status}${detail?`: ${detail}`:''}`,
+          fetchedAt:new Date().toISOString()
+        };
+        return normalize(next);
+      }
+
       const plans=await response.json();
       next.weeklyCoveragePlans=Object.fromEntries(
         (Array.isArray(plans)?plans:[])
           .filter(plan=>plan&&plan.periodKey)
           .map(plan=>[plan.periodKey,plan])
       );
+      next.assignmentSync={
+        ok:true,
+        status:'ready',
+        error:null,
+        fetchedAt:new Date().toISOString()
+      };
       return normalize(next);
     }catch(e){
-      return next;
+      next.assignmentSync={
+        ok:false,
+        status:'error',
+        error:'Could not reach the shared assignment server.',
+        fetchedAt:new Date().toISOString()
+      };
+      return normalize(next);
     }
   }
 
   async function publishGlobalAssignmentPlan(state,plan){
     if(!plan?.periodKey)return {ok:false,state:normalize(state),error:'Plan has no period key.'};
+
     try{
       const response=await fetch(`/api/v1/assignments/published/${encodeURIComponent(plan.periodKey)}`,{
         method:'PUT',
         credentials:'same-origin',
+        cache:'no-store',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({plan})
       });
+
       if(!response.ok){
         let message=`Publish failed (HTTP ${response.status})`;
         try{
@@ -220,12 +263,27 @@
         }catch(e){}
         return {ok:false,state:normalize(state),error:String(message)};
       }
+
       const published=await response.json();
-      let next=normalize(state);
-      next.weeklyCoveragePlans={...(next.weeklyCoveragePlans||{}),[published.periodKey]:published};
-      next=await hydratePublishedAssignments(next,published.dateKey||published.periodStart);
-      save(next);
-      return {ok:true,state:next,plan:published};
+
+      // Read it back from the shared store. A publish is not considered
+      // successful merely because the PUT returned 2xx.
+      const verified=await hydratePublishedAssignments(
+        state,
+        published.dateKey||published.periodStart||plan.periodStart
+      );
+      const confirmed=verified.weeklyCoveragePlans?.[published.periodKey];
+
+      if(!verified.assignmentSync?.ok||!confirmed){
+        return {
+          ok:false,
+          state:verified,
+          error:'The server accepted the publish, but the plan could not be read back from the shared database.'
+        };
+      }
+
+      save(verified);
+      return {ok:true,state:verified,plan:confirmed};
     }catch(e){
       return {ok:false,state:normalize(state),error:'Could not reach the shared assignments API.'};
     }
