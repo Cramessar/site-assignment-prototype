@@ -1,4 +1,5 @@
 (() => {
+  const A = SiteAppState;
   const SEED = SITE_ASSIGNMENT_SEED;
   const L = SiteCoverageLogic;
   const S = SiteScheduleLogic;
@@ -216,9 +217,11 @@
     $('lastUpdated').textContent = `Loaded ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
   }
 
-  function refreshFromStorage() {
+  async function refreshFromStorage() {
     const selected = $('personSelect').value;
     state = DP.normalizeState(loadState());
+    const dates=A.weekDateKeys(scheduleDateKey);
+    state=await A.hydrateScheduleData(state,dates[0],dates[dates.length-1]);
     renderPicker();
     renderTeamSchedule();
     renderShiftLeads();
@@ -233,27 +236,19 @@
   $('scheduleDate').addEventListener('change', e => {
     if (!S.isDateKey(e.target.value)) return;
     scheduleDateKey = e.target.value;
-    renderTeamSchedule();
-    const selected = $('personSelect').value;
-    if (selected) renderSelected(selected);
+    refreshFromStorage();
   });
   $('schedulePrevDay').addEventListener('click', () => {
     scheduleDateKey = SV.addDays(scheduleDateKey, -1);
-    renderTeamSchedule();
-    const selected = $('personSelect').value;
-    if (selected) renderSelected(selected);
+    refreshFromStorage();
   });
   $('scheduleNextDay').addEventListener('click', () => {
     scheduleDateKey = SV.addDays(scheduleDateKey, 1);
-    renderTeamSchedule();
-    const selected = $('personSelect').value;
-    if (selected) renderSelected(selected);
+    refreshFromStorage();
   });
   $('scheduleToday').addEventListener('click', () => {
     scheduleDateKey = SV.todayKey();
-    renderTeamSchedule();
-    const selected = $('personSelect').value;
-    if (selected) renderSelected(selected);
+    refreshFromStorage();
   });
 
   $('personSelect').addEventListener('change', e => renderSelected(e.target.value));
@@ -269,16 +264,13 @@
   });
   window.addEventListener('focus', refreshFromStorage);
 
-  renderPicker();
-  renderTeamSchedule();
-  renderShiftLeads();
-  renderDirectory();
-  renderFooter();
-
-  const params = new URLSearchParams(window.location.search);
-  const initial = params.get('person') || localStorage.getItem(PERSON_KEY) || '';
-  if (initial && allPeople().some(p => p.id === initial)) {
-    $('personSelect').value = initial;
-    renderSelected(initial);
-  }
+  (async()=>{
+    await refreshFromStorage();
+    const params = new URLSearchParams(window.location.search);
+    const initial = params.get('person') || localStorage.getItem(PERSON_KEY) || '';
+    if (initial && allPeople().some(p => p.id === initial)) {
+      $('personSelect').value = initial;
+      renderSelected(initial);
+    }
+  })();
 })();
