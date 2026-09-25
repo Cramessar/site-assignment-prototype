@@ -32,7 +32,7 @@
     return `<div class="schedule-inline-editor" data-schedule-editor="${esc(person.id)}">
       <label><span>Start</span><input type="time" value="${esc(start)}" data-schedule-start="${esc(person.id)}" ${disabled}></label>
       <label><span>End</span><input type="time" value="${esc(end)}" data-schedule-end="${esc(person.id)}" ${disabled}></label>
-      <label class="schedule-status-control"><span>Status</span><select data-schedule-status="${esc(person.id)}" ${disabled}><option value="working" ${status==='working'?'selected':''}>Working</option><option value="training" ${status==='training'?'selected':''}>Training</option><option value="meeting" ${status==='meeting'?'selected':''}>Meeting</option><option value="unavailable" ${status==='unavailable'?'selected':''}>Unavailable</option></select></label>
+      <label class="schedule-status-control"><span>Status</span><select data-schedule-status="${esc(person.id)}" ${disabled}><option value="working" ${status==='working'?'selected':''}>Working</option><option value="vacation" ${status==='vacation'?'selected':''}>Vacation</option><option value="training" ${status==='training'?'selected':''}>Training</option><option value="meeting" ${status==='meeting'?'selected':''}>Meeting</option><option value="unavailable" ${status==='unavailable'?'selected':''}>Unavailable</option></select></label>
       <button type="button" data-schedule-off="${esc(person.id)}" class="${shift.off?'active':''}">${shift.off?'Restore':'Off'}</button><button type="button" data-schedule-reset="${esc(person.id)}">Reset</button>
     </div>`;
   }
@@ -50,8 +50,7 @@
       });
     }else track+=`<div class="schedule-off-bar">${shift.vacation?'Vacation':shift.inactiveShift?'Inactive today':shift.recurringOff?'Not scheduled today':shift.off?'Off':shift.unconfigured?'Hours not configured':'Off'}</div>`;
     const right=options.editable?editorHTML(person,shift,person.vacation):publicDurationHTML(state,person,shift,dateKey),manager=person.manager?` • Mgr ${person.manager}`:'',supervisorChip=supervisor?` • Shift supervisor`:'';
-    const vacationToggle=options.editable?`<button type="button" class="schedule-vacation-toggle ${person.vacation?'active':''}" data-schedule-vacation="${esc(person.id)}">${person.vacation?'Return from vacation':'Vacation'}</button>`:'';
-    return `<div class="schedule-row ${selected} ${supervisor}" data-schedule-person="${esc(person.id)}"><div class="schedule-person"><div class="schedule-person-head"><strong>${esc(personDisplayName(person))}</strong>${vacationToggle}</div><small>${esc(roleShort(person.role,person.title))}${esc(manager)}${esc(supervisorChip)}</small></div><div class="schedule-track">${track}</div>${right}</div>`;
+    return `<div class="schedule-row ${selected} ${supervisor}" data-schedule-person="${esc(person.id)}"><div class="schedule-person"><div class="schedule-person-head"><strong>${esc(personDisplayName(person))}</strong></div><small>${esc(roleShort(person.role,person.title))}${esc(manager)}${esc(supervisorChip)}</small></div><div class="schedule-track">${track}</div>${right}</div>`;
   }
 
   function groupPeople(state,shiftId){return S.allStaff(state).filter(p=>S.operationalShiftId(state,p)===shiftId).sort((a,b)=>{const sa=S.isShiftSupervisor(state,a)||a.role==='tss'||a.role==='manager'||a.role==='supervisor'?-1:a.role==='tsa'?1:0,sb=S.isShiftSupervisor(state,b)||b.role==='tss'||b.role==='manager'||b.role==='supervisor'?-1:b.role==='tsa'?1:0;return sa-sb||personDisplayName(a).localeCompare(personDisplayName(b));});}
