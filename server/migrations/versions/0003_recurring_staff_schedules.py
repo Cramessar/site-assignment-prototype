@@ -16,6 +16,15 @@ depends_on = None
 
 def upgrade() -> None:
     op.create_table(
+        "shift_schedule_defaults",
+        sa.Column("shift_id", sa.String(length=80), primary_key=True),
+        sa.Column("name", sa.String(length=120), nullable=False),
+        sa.Column("default_start", sa.String(length=5), nullable=True),
+        sa.Column("default_end", sa.String(length=5), nullable=True),
+        sa.Column("active_iso_weekdays", sa.JSON(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+    )
+    op.create_table(
         "staff_schedule_profiles",
         sa.Column("person_id", sa.String(length=120), primary_key=True),
         sa.Column("full_name", sa.String(length=200), nullable=False),
@@ -97,3 +106,4 @@ def downgrade() -> None:
     )
     op.drop_table("staff_schedule_segments")
     op.drop_table("staff_schedule_profiles")
+    op.drop_table("shift_schedule_defaults")
